@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 ROOT=Path(__file__).resolve().parents[1]
-MOD=next((p/'Sky1st-Scherazard-Mod' for p in [ROOT.parent,ROOT.parent.parent] if (p/'Sky1st-Scherazard-Mod/vendor').exists()), None)
+MOD=ROOT/'tools' if (ROOT/'tools/vendor').exists() else next((p/'Sky1st-Scherazard-Mod' for p in [ROOT.parent,ROOT.parent.parent] if (p/'Sky1st-Scherazard-Mod/vendor').exists()), None)
 if MOD is None: raise RuntimeError('Missing MDL parser dependency')
 sys.path.insert(0,str(MOD/'vendor'));sys.path.insert(0,str(MOD/'scripts'))
 import kuro_mdl_export_meshes as mdl

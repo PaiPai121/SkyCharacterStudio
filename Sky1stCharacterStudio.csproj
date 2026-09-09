@@ -9,6 +9,8 @@
     <RootNamespace>Sky1stCharacterStudio</RootNamespace>
     <Platforms>AnyCPU</Platforms>
     <NuGetAudit>false</NuGetAudit>
+    <Version>0.1.0-beta</Version>
+    <DefaultItemExcludes>$(DefaultItemExcludes);release-stage/**;release-artifacts/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +21,7 @@
     <None Include="tools\character_age.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\build_summon_dat.exe" CopyToOutputDirectory="PreserveNewest" />
     <None Include="assets\character-ages.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\supported-game.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\auto_model.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\apply_shape.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\lib_fmtibvb.py" CopyToOutputDirectory="PreserveNewest" />

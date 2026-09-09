@@ -223,6 +223,11 @@ public partial class MainWindow : Window
         RefreshLive();
     }
 
+    private void ResetShapeButton_Click(object sender, RoutedEventArgs e)
+    {
+        ShapeSlider.Value = 0;
+    }
+
 
     private async void InstallButton_Click(object sender, RoutedEventArgs e) => await InstallCurrentAsync();
 
@@ -240,10 +245,11 @@ public partial class MainWindow : Window
             SetActionState(false);
             var strength=(int)Math.Round(ShapeSlider.Value);
             SetStatus($"正在生成 {strength}% 模型并安装到：{target}");
-            var result=await ExportService.ExportAsync(_selectedCharacter,_modelArchive,_projectRoot,strength,true,CancellationToken.None,CurrentMode);
+            var testSummon=SummonTestingBox.IsChecked==true;
+            var result=await ExportService.ExportAsync(_selectedCharacter,_modelArchive,_projectRoot,strength,true,CancellationToken.None,CurrentMode,testSummon);
             if(!result.ShapeEditApplied || result.RuntimePackagePath is null) throw new InvalidOperationException("模型生成失败，未安装。");
             var backup=await Task.Run(()=>GameInstaller.Install(result.RuntimePackagePath,target,Path.Combine(_projectRoot,"install-backups")));
-            SetStatus($"已安装 {strength}% 模型到：{target}\n回到可自由移动的场景，按 F8 召唤本次安装的角色；F9 切换原版／调整后，再按 F8 刷新。备份：{backup}");
+            SetStatus($"已安装 {strength}% 模型到：{target}\n"+(testSummon ? "F8 召唤本次角色；F9 切换版本后再按 F8 刷新。" : "角色正常出场时生效；测试召唤已关闭。")+$"备份：{backup}");
         } catch(Exception error) { SetStatus(error.Message,true); }
         finally { SetActionState(true); }
     }
@@ -262,9 +268,22 @@ public partial class MainWindow : Window
         } catch(Exception error) { SetStatus(error.Message,true); }
     }
 
+    private async void RestoreButton_Click(object sender,RoutedEventArgs e) {
+        try {
+            SetActionState(false);
+            var target=GameInstaller.ValidateGameRoot(GamePathBox.Text);
+            var restored=await Task.Run(()=>GameInstaller.RestoreLatest(target,Path.Combine(_projectRoot,"install-backups")));
+            SetStatus("已撤销上次安装："+restored);
+        } catch(Exception error) {SetStatus(error.Message,true);}
+        finally {SetActionState(true);}
+    }
+
     private void SetActionState(bool enabled)
     {
         ScanButton_ClickEnabled(enabled);
+        if(RestoreButton is not null)RestoreButton.IsEnabled=enabled;
+        if(ResetShapeButton is not null)ResetShapeButton.IsEnabled=enabled && _modelReady;
+        if(SummonTestingBox is not null)SummonTestingBox.IsEnabled=enabled;
         BrowseButton.IsEnabled = enabled;
         GamePathBox.IsEnabled = enabled;
         InstallButton.IsEnabled = enabled && _modelReady;
@@ -299,10 +318,9 @@ public partial class MainWindow : Window
     {
         var candidates = new List<string>
         {
-            @"D:\SteamLibrary\steamapps\common\Sora No Kiseki the 1st",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam", "steamapps", "common", "Sora No Kiseki the 1st"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Steam", "steamapps", "common", "Sora No Kiseki the 1st")
         };
-        return candidates.FirstOrDefault(path => File.Exists(Path.Combine(path, "pac", "steam", "asset_common_model.pac"))) ?? candidates[0];
+        return candidates.FirstOrDefault(path => File.Exists(Path.Combine(path, "pac", "steam", "asset_common_model.pac"))) ?? "";
     }
 }

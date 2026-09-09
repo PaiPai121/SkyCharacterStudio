@@ -319,6 +319,9 @@ extern "C" __declspec(dllexport) int EventStarter_GetCharacter() {
 
 extern "C" __declspec(dllexport) void Plugin_Load(const Ed9Api* api) {
     if (api == nullptr || api->log == nullptr || api->get_module_base == nullptr) return;
+    if(api->cfg_get_int && api->cfg_get_int("EventStarter","enabled",1)==0) {
+        api->log("EventStarter: optional summon testing disabled");return;
+    }
     if (api->abi_version < 6 || api->install_hook == nullptr) {
         api->log("EventStarter: requires ED9Loader ABI v6");
         return;

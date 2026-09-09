@@ -42,6 +42,12 @@ public static class GameInstaller
         gameRoot = ValidateGameRoot(gameRoot);
         runningCheck ??= IsGameRunning;
         if (runningCheck()) throw new InvalidOperationException("游戏正在运行，请先退出游戏再安装。");
+        var compatibility=PreviewService.FindFileUpwards("assets","supported-game.json");
+        if(compatibility is not null) {
+            using var supported=JsonDocument.Parse(File.ReadAllText(compatibility));
+            var hash=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(gameRoot,"sora_1st.exe"))));
+            if(hash!=supported.RootElement.GetProperty("sha256").GetString())throw new InvalidOperationException("当前游戏程序不在已验证版本中。此测试版仅支持云豹 Steam 1.0.5.0，未安装任何文件。");
+        }
         package = Path.GetFullPath(package);
         foreach (var required in new[] { "xinput1_4.dll", "ED9Loader", "Mod/ScherazardSummon/asset/common/model" })
             if (!File.Exists(Path.Combine(package,required)) && !Directory.Exists(Path.Combine(package,required)))
@@ -71,7 +77,8 @@ public static class GameInstaller
             File.Copy(Path.Combine(gameRoot,relative),saved);
         }
         var manifest=Path.Combine(backup,"installation.json");
-        void Record(string state) => File.WriteAllText(manifest,JsonSerializer.Serialize(new { gameRoot, package, state, files=existed },new JsonSerializerOptions { WriteIndented=true }));
+        var installedHashes=files.ToDictionary(r=>r,r=>Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(SafePath(package,r)))));
+        void Record(string state) => File.WriteAllText(manifest,JsonSerializer.Serialize(new { gameRoot, package, state, files=existed,installedHashes },new JsonSerializerOptions { WriteIndented=true }));
         Record("backed-up");
         var touched=new List<string>();
         try {
@@ -95,5 +102,43 @@ public static class GameInstaller
             if(errors.Count>0) throw new AggregateException("安装失败，部分文件还原失败。备份："+backup,errors.Prepend(failure));
             throw new IOException("安装失败，已还原本次修改。备份："+backup,failure);
         }
+    }
+
+    public static string RestoreLatest(string gameRoot,string backupRoot,Func<bool>? runningCheck=null)
+    {
+        gameRoot=ValidateGameRoot(gameRoot);runningCheck??=IsGameRunning;
+        if(runningCheck())throw new InvalidOperationException("请先退出游戏再恢复。");
+        if(!Directory.Exists(backupRoot))throw new IOException("没有可恢复的安装备份。");
+        foreach(var file in Directory.GetFiles(backupRoot,"installation.json",SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc)) {
+            var doc=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))!;
+            if(doc["state"]?.GetValue<string>()!="installed" || !string.Equals(doc["gameRoot"]?.GetValue<string>(),gameRoot,StringComparison.OrdinalIgnoreCase))continue;
+            var backup=Path.GetDirectoryName(file)!;
+            var originals=new Dictionary<string,byte[]?>();var current=new Dictionary<string,byte[]?>();
+            foreach(var pair in doc["files"]!.AsObject()) {
+                var target=SafePath(gameRoot,pair.Key);var saved=SafePath(backup,pair.Key);
+                current[pair.Key]=File.Exists(target)?File.ReadAllBytes(target):null;
+                var expected=doc["installedHashes"]?[pair.Key]?.GetValue<string>();
+                if(expected is not null && (current[pair.Key] is null || Convert.ToHexString(SHA256.HashData(current[pair.Key]!))!=expected))
+                    throw new IOException("安装后文件已被其他程序修改，为避免覆盖，停止恢复："+pair.Key);
+                originals[pair.Key]=pair.Value!.GetValue<bool>()?File.ReadAllBytes(saved):null;
+            }
+            var touched=new List<string>();
+            try {
+                foreach(var pair in originals) {
+                    if(runningCheck())throw new IOException("游戏启动，停止恢复。");
+                    var target=SafePath(gameRoot,pair.Key);touched.Add(pair.Key);
+                    if(pair.Value is null)File.Delete(target);else File.WriteAllBytes(target,pair.Value);
+                }
+                doc["state"]="restored";File.WriteAllText(file,doc.ToJsonString(new JsonSerializerOptions{WriteIndented=true}));
+                return backup;
+            } catch {
+                foreach(var relative in touched) {
+                    var target=SafePath(gameRoot,relative);
+                    if(current[relative] is null)File.Delete(target);else File.WriteAllBytes(target,current[relative]!);
+                }
+                throw;
+            }
+        }
+        throw new IOException("没有此游戏目录尚未撤销的安装记录。");
     }
 }

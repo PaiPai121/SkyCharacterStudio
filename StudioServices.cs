@@ -106,6 +106,7 @@ public sealed class PreviewService
     {
         var candidates = new[]
         {
+            System.IO.Path.Combine(AppContext.BaseDirectory, "runtime", "python", "python.exe"),
             System.IO.Path.Combine(AppContext.BaseDirectory, ".venv", "Scripts", "python.exe"),
             FindFileUpwards(".venv", "Scripts", "python.exe"),
             FindFileUpwards("..", "Sky1st-Scherazard-Mod", ".venv", "Scripts", "python.exe"),
@@ -247,7 +248,7 @@ public static class ExportService
 {
     public static async Task<ExportResult> ExportAsync(
         CharacterRecord record, PacArchive modelArchive, string projectRoot, int strength, bool buildRuntime,
-        CancellationToken cancellationToken, string mode = "width")
+        CancellationToken cancellationToken, string mode = "width", bool enableSummon = true)
     {
         strength = Math.Clamp(strength, -500, 1000);
         var exportRoot = System.IO.Path.Combine(projectRoot, "exports", $"{record.ModelId}_{mode}_{strength:000}");
@@ -279,7 +280,7 @@ public static class ExportService
 
         string? runtimePath = null;
         if (buildRuntime)
-            runtimePath = await BuildRuntimePackageAsync(record, modelPath, exportRoot, projectRoot, game, strength, cancellationToken);
+            runtimePath = await BuildRuntimePackageAsync(record, modelPath, exportRoot, projectRoot, game, strength, cancellationToken,enableSummon);
 
         var message = record.IsSupportedShapeEdit
             ? (shapeApplied ? $"已导出 {record.DisplayName} 的 {strength}% 形体模型。" : $"已导出模型副本；{helperMessage ?? "形体补丁未应用"}")
@@ -296,7 +297,7 @@ public static class ExportService
     }
 
     private static async Task<string> BuildRuntimePackageAsync(CharacterRecord record, string modelPath, string exportRoot,
-        string projectRoot, string game, int strength, CancellationToken cancellationToken)
+        string projectRoot, string game, int strength, CancellationToken cancellationToken, bool enableSummon)
     {
         var destination = System.IO.Path.Combine(exportRoot, "Scherazard_Runtime");
         var source = FindRuntimeRoot(projectRoot);
@@ -311,7 +312,12 @@ public static class ExportService
             var runtimeModel = System.IO.Path.Combine(destination, "Mod", "ScherazardSummon", "asset", "common", "model", record.ModelFileName);
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(runtimeModel)!);
             File.Copy(modelPath, runtimeModel, true);
-            await StudioSummonService.ConfigureAsync(destination,game,record.ModelId,record.DisplayName);
+            if(enableSummon)await StudioSummonService.ConfigureAsync(destination,game,record.ModelId,record.DisplayName);
+            else {
+                var ini=Path.Combine(destination,"ED9Loader","config","EventStarter.ini");
+                File.WriteAllText(ini,"[Settings]\r\nenabled=0\r\n");
+                File.WriteAllText(Path.Combine(destination,"Mod","ScherazardSummon","add_dat_ini.json"),"{\"inject\":[]}");
+            }
             await File.WriteAllTextAsync(System.IO.Path.Combine(destination, "CharacterStudioOverride.txt"),
                 $"模型：{record.DisplayName} ({record.ModelId})\r\n形体强度：{strength}%\r\n\r\n这是离线生成的测试包副本。请先退出游戏，再手工将此目录内容复制到游戏目录；工具不会自动安装或启动游戏。\r\n",
                 Encoding.UTF8, cancellationToken);
@@ -336,6 +342,7 @@ public static class ExportService
     {
         var candidates = new[]
         {
+            System.IO.Path.Combine(AppContext.BaseDirectory,"runtime","mod-template"),
             System.IO.Path.Combine(projectRoot, "..", "Sky1st-Scherazard-Mod", "dist", "Scherazard_Runtime"),
             System.IO.Path.Combine(projectRoot, "..", "..", "Sky1st-Scherazard-Mod", "dist", "Scherazard_Runtime"),
             System.IO.Path.Combine(projectRoot, "Sky1st-Scherazard-Mod", "dist", "Scherazard_Runtime")
