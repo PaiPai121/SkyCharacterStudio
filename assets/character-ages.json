@@ -1,0 +1,485 @@
+{
+  "chr0002": {
+    "name": "约书亚",
+    "age": 26,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.falcom.co.jp/sora/character/joshua.html"
+  },
+  "chr0003": {
+    "name": "奥利维尔",
+    "age": 25,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.falcom.co.jp/sora/character/olivier.html"
+  },
+  "chr0005": {
+    "name": "阿加特",
+    "age": 24,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.falcom.co.jp/sora/character/agate.html"
+  },
+  "chr0007": {
+    "name": "阵",
+    "age": 30,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.falcom.co.jp/sora/character/zin.html"
+  },
+  "chr0200": {
+    "name": "克鲁茨",
+    "age": 29,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/08/trails-in-the-sky-1st-chapter-details-grancel-characters-and-places-trailer"
+  },
+  "chr0203": {
+    "name": "库拉茨",
+    "age": 22,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/06/trails-in-the-sky-1st-chapter-details-bose-characters-and-places-location-trailers"
+  },
+  "chr0208": {
+    "name": "理查德上校",
+    "age": 34,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/06/trails-in-the-sky-1st-chapter-details-bose-characters-and-places-location-trailers"
+  },
+  "chr0209": {
+    "name": "卡西乌斯",
+    "age": 45,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.cloudedleopardent.com/en/news/5732/"
+  },
+  "chr0220": {
+    "name": "管家菲利普",
+    "age": 58,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/08/trails-in-the-sky-1st-chapter-details-grancel-characters-and-places-trailer"
+  },
+  "chr0223": {
+    "name": "摩尔根将军",
+    "age": 62,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/06/trails-in-the-sky-1st-chapter-details-bose-characters-and-places-location-trailers"
+  },
+  "chr0226": {
+    "name": "希德少校",
+    "age": 32,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/07/trails-in-the-sky-1st-chapter-details-zeiss-characters-and-places-trailer"
+  },
+  "chr0227": {
+    "name": "亚鲁瓦教授",
+    "age": 37,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.cloudedleopardent.com/en/news/5732/"
+  },
+  "chr0228": {
+    "name": "莱维",
+    "age": 26,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/08/trails-in-the-sky-1st-chapter-details-grancel-characters-and-places-trailer"
+  },
+  "chr0302": {
+    "name": "杜南公爵",
+    "age": 35,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/08/trails-in-the-sky-1st-chapter-details-grancel-characters-and-places-trailer"
+  },
+  "chr0307": {
+    "name": "奈尔",
+    "age": 29,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.cloudedleopardent.com/en/news/5732/"
+  },
+  "chr0323": {
+    "name": "秘书基尔巴特",
+    "age": 23,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/07/trails-in-the-sky-1st-chapter-details-ruan-characters-and-places-trailer"
+  },
+  "chr0325": {
+    "name": "格斯塔夫维修长",
+    "age": 48,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/07/trails-in-the-sky-1st-chapter-details-zeiss-characters-and-places-trailer"
+  },
+  "chr0326": {
+    "name": "拉赛尔博士",
+    "age": 68,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/07/trails-in-the-sky-1st-chapter-details-zeiss-characters-and-places-trailer"
+  },
+  "chr0329": {
+    "name": "卢格兰老人",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：卢格兰老人",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0329"
+  },
+  "chr0320": {
+    "name": "嘉恩",
+    "age": 24,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/07/trails-in-the-sky-1st-chapter-details-ruan-characters-and-places-trailer"
+  },
+  "chr0322": {
+    "name": "艾南",
+    "age": 25,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/08/trails-in-the-sky-1st-chapter-details-grancel-characters-and-places-trailer"
+  },
+  "chr0332": {
+    "name": "科林兹校长",
+    "age": 70,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/07/trails-in-the-sky-1st-chapter-details-ruan-characters-and-places-trailer"
+  },
+  "chr0346": {
+    "name": "孩童约书亚",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：孩童约书亚",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0346"
+  },
+  "chr0347": {
+    "name": "草席卷约书亚",
+    "age": 26,
+    "status": "adult",
+    "basis": "本作名称表标注为约书亚的特殊造型；年龄按本作约书亚",
+    "source": "https://www.falcom.co.jp/sora/character/joshua.html"
+  },
+  "chr0520": {
+    "name": "中年男子2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：中年男子2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0520"
+  },
+  "chr0522": {
+    "name": "中年男子2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：中年男子2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0522"
+  },
+  "chr0522": {
+    "name": "中年男子3",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：中年男子3",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0522"
+  },
+  "chr0523": {
+    "name": "中年男子4",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：中年男子4",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0523"
+  },
+  "chr0520": {
+    "name": "老年男子2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：老年男子2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0520"
+  },
+  "chr0522": {
+    "name": "老年男子2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：老年男子2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0522"
+  },
+  "chr0522": {
+    "name": "老年男性3",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：老年男性3",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0522"
+  },
+  "chr0523": {
+    "name": "老年男性4",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：老年男性4",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0523"
+  },
+  "chr0540": {
+    "name": "幼儿2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：幼儿2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0540"
+  },
+  "chr0542": {
+    "name": "幼儿2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：幼儿2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0542"
+  },
+  "chr0560": {
+    "name": "中年男性学者2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：中年男性学者2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0560"
+  },
+  "chr0600": {
+    "name": "工房工匠（老人）",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：工房工匠（老人）",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0600"
+  },
+  "chr0602": {
+    "name": "厨师2（中年男性）",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：厨师2（中年男性）",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0602"
+  },
+  "chr0606": {
+    "name": "飞行船船长（中年男性）",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：飞行船船长（中年男性）",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0606"
+  },
+  "chr0608": {
+    "name": "神父（老年男性）",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：神父（老年男性）",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0608"
+  },
+  "chr0609": {
+    "name": "管家（中年男性）",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：管家（中年男性）",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0609"
+  },
+  "chr0702": {
+    "name": "王国军军官（中年男性）",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：王国军军官（中年男性）",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr0702"
+  },
+  "chr5000": {
+    "name": "艾丝蒂尔",
+    "age": 26,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.falcom.co.jp/sora/character/estelle.html"
+  },
+  "chr5002": {
+    "name": "雪拉扎德",
+    "age": 23,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.falcom.co.jp/sora/character/scherazard.html"
+  },
+  "chr5004": {
+    "name": "克萝赛",
+    "age": 26,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.falcom.co.jp/sora/character/klose.html"
+  },
+  "chr5006": {
+    "name": "缇妲",
+    "age": 22,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.falcom.co.jp/sora/character/tita.html"
+  },
+  "chr5202": {
+    "name": "亚妮拉丝",
+    "age": 28,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/06/trails-in-the-sky-1st-chapter-details-bose-characters-and-places-location-trailers"
+  },
+  "chr5202": {
+    "name": "卡露娜",
+    "age": 25,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/07/trails-in-the-sky-1st-chapter-details-ruan-characters-and-places-trailer"
+  },
+  "chr5206": {
+    "name": "乔丝特",
+    "age": 26,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.cloudedleopardent.com/en/news/5732/"
+  },
+  "chr5207": {
+    "name": "尤莉亚中尉",
+    "age": 27,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/07/trails-in-the-sky-1st-chapter-details-ruan-characters-and-places-trailer"
+  },
+  "chr5222": {
+    "name": "雾香",
+    "age": 27,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/07/trails-in-the-sky-1st-chapter-details-zeiss-characters-and-places-trailer"
+  },
+  "chr5224": {
+    "name": "凯诺娜上尉",
+    "age": 27,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/06/trails-in-the-sky-1st-chapter-details-bose-characters-and-places-location-trailers"
+  },
+  "chr5300": {
+    "name": "艾莉茜雅女王",
+    "age": 60,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/08/trails-in-the-sky-1st-chapter-details-grancel-characters-and-places-trailer"
+  },
+  "chr5308": {
+    "name": "朵洛希",
+    "age": 20,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.cloudedleopardent.com/en/news/5732/"
+  },
+  "chr5320": {
+    "name": "梅贝尔市长",
+    "age": 22,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/06/trails-in-the-sky-1st-chapter-details-bose-characters-and-places-location-trailers"
+  },
+  "chr5322": {
+    "name": "莉拉",
+    "age": 20,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.gematsu.com/2025/06/trails-in-the-sky-1st-chapter-details-bose-characters-and-places-location-trailers"
+  },
+  "chr5328": {
+    "name": "爱娜",
+    "age": 23,
+    "status": "adult",
+    "basis": "《空之轨迹 the 1st》角色介绍公布年龄",
+    "source": "https://www.cloudedleopardent.com/en/news/5732/"
+  },
+  "chr5342": {
+    "name": "测试君3（约书亚女装检查用）",
+    "age": 26,
+    "status": "adult",
+    "basis": "本作名称表标注为约书亚的特殊造型；年龄按本作约书亚",
+    "source": "https://www.falcom.co.jp/sora/character/joshua.html"
+  },
+  "chr5345": {
+    "name": "孩童艾丝蒂尔",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：孩童艾丝蒂尔",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5345"
+  },
+  "chr5520": {
+    "name": "中年女子2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：中年女子2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5520"
+  },
+  "chr5522": {
+    "name": "中年女子2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：中年女子2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5522"
+  },
+  "chr5522": {
+    "name": "中年女子3",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：中年女子3",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5522"
+  },
+  "chr5523": {
+    "name": "中年女子4",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：中年女子4",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5523"
+  },
+  "chr5520": {
+    "name": "老年女子2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：老年女子2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5520"
+  },
+  "chr5522": {
+    "name": "老年女子2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：老年女子2",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5522"
+  },
+  "chr5522": {
+    "name": "老年女子3",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：老年女子3",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5522"
+  },
+  "chr5538": {
+    "name": "少女4",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：7岁少女①(洛连特的尤妮)",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5538"
+  },
+  "chr5539": {
+    "name": "少女5",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：7岁少女②(玛诺利亚的卢希娅)",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5539"
+  },
+  "chr5540": {
+    "name": "女孩2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：女童①（都会）",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5540"
+  },
+  "chr5542": {
+    "name": "女孩2",
+    "age": 30,
+    "status": "adult",
+    "basis": "本作资源表明确标注：女童②（乡下）",
+    "source": "游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5542"
+  }
+}

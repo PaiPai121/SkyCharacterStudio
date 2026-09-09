@@ -1,0 +1,2 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems><NuGetAudit>false</NuGetAudit></PropertyGroup><ItemGroup><Compile Include="AutoExportCheck.cs"/><Reference Include="Sky1stCharacterStudio"><HintPath>../bin/Release/net8.0-windows/Sky1stCharacterStudio.dll</HintPath></Reference></ItemGroup></Project>
+

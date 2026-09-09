@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Sky1stCharacterStudio</AssemblyName>
+    <RootNamespace>Sky1stCharacterStudio</RootNamespace>
+    <Platforms>AnyCPU</Platforms>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="smoke\**" />
+    <None Remove="smoke\**" />
+    <None Include="tools\preview_dds.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="tools\bone_profile.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="tools\character_age.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="tools\build_summon_dat.exe" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\character-ages.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="tools\auto_model.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="tools\apply_shape.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="tools\lib_fmtibvb.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\previews\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\live\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

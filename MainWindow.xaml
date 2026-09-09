@@ -1,0 +1,209 @@
+<Window x:Class="Sky1stCharacterStudio.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Sky1stCharacterStudio"
+        Title="空之轨迹 the 1st · 角色模型工作台"
+        Width="1240"
+        Height="780"
+        MinWidth="1000"
+        MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        Background="#0B1622"
+        Foreground="#E4EFF1">
+    <Window.Resources>
+        <SolidColorBrush x:Key="PanelBrush" Color="#122536" />
+        <SolidColorBrush x:Key="PanelDeepBrush" Color="#0E1D2C" />
+        <SolidColorBrush x:Key="LineBrush" Color="#2E5262" />
+        <SolidColorBrush x:Key="GoldBrush" Color="#D7B15B" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#91ACB6" />
+        <SolidColorBrush x:Key="CyanBrush" Color="#71C6BA" />
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+            <Setter Property="Foreground" Value="#E9F4F4" />
+            <Setter Property="Background" Value="#1C3A4A" />
+            <Setter Property="BorderBrush" Value="#4D7C84" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="13,7" />
+            <Setter Property="Margin" Value="4,0,0,0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+            <Setter Property="Foreground" Value="#122536" />
+            <Setter Property="Margin" Value="0,5,0,0" />
+            <Setter Property="Padding" Value="5,3" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+            <Setter Property="Foreground" Value="#E9F4F4" />
+            <Setter Property="Background" Value="#0D1C2A" />
+            <Setter Property="BorderBrush" Value="#365968" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,6" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="游击士协会 · 角色模型工作台" FontSize="24" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
+                <TextBlock Text="选择游戏目录，调整模型，一键导出并安装。安装会备份旧文件，原始 PAC 保持只读。" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
+            </StackPanel>
+            <Border Grid.Column="1" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="8" Padding="12,7" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="9" Height="9" Fill="{StaticResource CyanBrush}" Margin="0,0,7,0" />
+                    <TextBlock Text="离线模式" Foreground="{StaticResource CyanBrush}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="310" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="资源扫描" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
+                    <TextBlock Grid.Row="1" Text="游戏目录（扫描与安装目标）" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,12,0,2" />
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="GamePathBox" />
+                        <Button x:Name="BrowseButton" Grid.Column="1" Content="浏览…" Click="BrowseButton_Click" />
+                    </Grid>
+                    <StackPanel Grid.Row="3" Margin="0,12,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="角色模型" FontSize="14" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ModelCountText" Grid.Column="1" Text="未扫描" Foreground="{StaticResource MutedBrush}" FontSize="11" VerticalAlignment="Center" />
+                        </Grid>
+                        <TextBox x:Name="FilterBox" TextChanged="FilterBox_TextChanged" ToolTip="输入 chr 编号或角色名进行筛选" Margin="0,8,0,0" />
+                        <ComboBox x:Name="CharacterBox" SelectionChanged="CharacterBox_SelectionChanged" MaxDropDownHeight="430">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="2,3">
+                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ModelId}" Foreground="#607B85" FontSize="11" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Border Background="{StaticResource PanelDeepBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="当前模型" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                                <TextBlock x:Name="SelectedNameText" Text="—" FontSize="16" Foreground="{StaticResource GoldBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                <TextBlock x:Name="SelectedIdText" Text="等待扫描" Foreground="#DDE9EA" Margin="0,3,0,0" />
+                                <TextBlock x:Name="SelectedMetaText" Text="" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <Button x:Name="ScanButton" Grid.Row="4" Content="扫描游戏资源" Click="ScanButton_Click" HorizontalAlignment="Stretch" Margin="0,14,0,0" Background="#245261" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.05*" />
+                    <ColumnDefinition Width="0" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="14" Margin="0,0,7,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="实时模型 · 拖动旋转，滚轮缩放" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
+                        <Border Grid.Row="1" Background="#09131E" BorderBrush="#325766" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,10,0,10">
+                            <Grid>
+                                <Image x:Name="PortraitImage" Stretch="Uniform" />
+                                <local:LiveModelView x:Name="LiveView" Visibility="Collapsed" />
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Row="2">
+                            <TextBlock x:Name="PortraitStatusText" Text="头像/贴图预览会从 image.pac 读取；雪拉扎德可切换原版与调整后 3D 渲染" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="PreviewToggleButton" Content="切换原版" Click="PreviewToggleButton_Click" Margin="0,8,0,0" />
+                                <Button Content="全身" Click="FullBody_Click" Margin="8,8,0,0" />
+                                <Button Content="上半身" Click="UpperBody_Click" Margin="8,8,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="14" Margin="7,0,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <TextBlock Text="形体轮廓预览" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
+                            <TextBlock x:Name="PreviewStrengthText" Text="0%" HorizontalAlignment="Right" Foreground="{StaticResource CyanBrush}" FontSize="16" FontWeight="SemiBold" />
+                        </Grid>
+                        <local:ShapePreviewControl x:Name="ContourPreview" Grid.Row="1" Strength="0" ModelLabel="轮廓预览" Margin="0,10,0,10" />
+                        <TextBlock Grid.Row="2" Text="滑条只改变导出模型的参数强度；最终网格由已验证的模型后端生成。" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="2" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="14" Margin="0,14,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid>
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="调整方式" VerticalAlignment="Center" Margin="0,0,10,0"/><ComboBox x:Name="ShapeModeBox" Width="180" SelectionChanged="ShapeMode_Changed"><ComboBoxItem Content="整体宽度" Tag="width"/><ComboBoxItem x:Name="ChestModeItem" ToolTipService.ShowOnDisabled="True" Content="胸部／胸廓（自动定位）" Tag="chest"/></ComboBox></StackPanel>
+                    <TextBlock Text="0 = 原版；整体宽度：−500 为 75%，1000 为 150%" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                </Grid>
+                <Grid Grid.Row="1" Margin="0,7,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Slider x:Name="ShapeSlider" Minimum="-500" Maximum="1000" Value="0" TickFrequency="10" IsSnapToTickEnabled="False" ValueChanged="ShapeSlider_ValueChanged" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=ShapeSlider, StringFormat={}{0:0}%}" Foreground="{StaticResource CyanBrush}" FontSize="15" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <Button x:Name="InstallButton" Grid.Column="2" Content="应用到游戏" Click="InstallButton_Click" Background="#245261" Margin="10,0,0,0" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" Margin="2,9,2,0">
+            <TextBlock x:Name="StatusText" Text="准备扫描。调整完成后，退出游戏并点击“应用到游戏”。" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+        </Grid>
+    </Grid>
+</Window>
