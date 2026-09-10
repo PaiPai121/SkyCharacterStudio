@@ -161,7 +161,8 @@ public static class CharacterScanner
                 ModelEntry = entry,
                 ModelInfoEntry = info,
                 PreviewEntry = face,
-                IsSupportedShapeEdit = true
+                IsSupportedShapeEdit = true,
+                IsBaseGameCharacter = true
             });
         }
         return records.OrderBy(x => names.ContainsKey(x.ModelId) ? 0 : 1)

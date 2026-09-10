@@ -256,7 +256,7 @@ public static class ExportService
         Directory.CreateDirectory(modelRoot);
         var modelPath = System.IO.Path.Combine(modelRoot, record.ModelFileName);
         var game=Directory.GetParent(Directory.GetParent(Directory.GetParent(modelArchive.Path)!.FullName)!.FullName)!.FullName;
-        await AutoModelService.Run(game,record.ModelId,mode,modelRoot,strength);
+        await AutoModelService.Run(game,record.ModelId,mode,modelRoot,strength,record.IsBaseGameCharacter);
         var shapeApplied=true;
         string helperMessage=$"自动模型调整：{mode}；按当前模型解析骨骼和顶点偏移。";
 

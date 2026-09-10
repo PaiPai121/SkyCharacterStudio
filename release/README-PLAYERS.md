@@ -6,7 +6,7 @@ Windows x64 character shape editor for the Clouded Leopard Entertainment Steam e
 
 1. 解压整个压缩包到一个你有写入权限的文件夹，双击 Sky1stCharacterStudio.exe。不需要另装 Python 或 .NET。
 2. 选择包含 sora_1st.exe 的游戏目录，扫描并选择角色。原始 PAC 只读。
-3. 选择整体宽度或胸部／胸廓调整，拖动滑条查看实际模型；需要回到原模型时点击滑条旁的“还原原模型”（强度 0%）。胸部调整仅对已有成年资料的角色开放，表面估计定位会明确标注。
+3. 选择整体宽度或胸部／胸廓调整，拖动滑条查看实际模型；需要回到原模型时点击滑条旁的“还原原模型”（强度 0%）。年龄目录中明确标记的未成年角色禁用胸部调整；从游戏原始模型归档扫描到、但目录尚未登记的默认角色按成年处理。表面估计定位会明确标注。
 4. 退出游戏后点“应用到游戏”。默认关闭测试召唤，角色正常出场时使用修改模型。
 5. 如需快速测试，安装前勾选“启用 F8 测试召唤”；进入能自由移动的场景按 F8。F9 切换原版／修改版，再按 F8 刷新。召唤的是临时角色，不会加入队伍。
 
@@ -26,5 +26,6 @@ Extract the entire archive into a writable folder and run Sky1stCharacterStudio.
 - Some preview materials differ from the game renderer, especially transparency and special shaders. The UI is Chinese-only in this beta.
 - Loader/proxy conflicts with other mods are possible. Installations make backups; do not remove them before restoring.
 - No original game models, textures or scripts are distributed. The tool reads the player's own installed game and generates local outputs.
+- The application icon uses the artwork supplied for this build by the project owner. Confirm that you have permission to redistribute it before a public upload; if the artwork is AI-generated, disclose that in the Nexus form. It is not an official Falcom or Clouded Leopard Entertainment icon.
 
 Credits and component licenses: THIRD-PARTY-NOTICES.md, licenses/, tools/vendor/LICENSE, runtime-source/vendor/ed9modmanager/LICENSE, and runtime/python/.

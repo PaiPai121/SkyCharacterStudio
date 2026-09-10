@@ -16,6 +16,8 @@ for id, info in CATALOG.items():
 assert age_info('chr5101')['age'] == 18 and adult_eligible('chr5101')
 assert not adult_eligible('chr5004') and age_info('chr5004')['status'] == 'minor'
 assert not adult_eligible('chr9999') and age_info('chr9999')['status'] == 'unknown'
+assert not adult_eligible('chr5004', True)
+assert adult_eligible('chr9999', True) and age_info('chr9999', True)['defaulted_from_base_game']
 for id in ['chr5102', 'chr5111', 'chr5107', 'chr5101']:
     with contextlib.redirect_stdout(io.StringIO()): raw, mats, data = model.prepare(game, id)
     for strength in [-500, 0, 100, 1000]:
@@ -36,6 +38,7 @@ for id in ['chr5102', 'chr5111', 'chr5107', 'chr5101']:
 # Direct backend calls cannot use an unverified/minor model ID to enable chest mode.
 for id in ['chr5004', 'chr9999']:
     try: model.profile(data,id,'chest')
-    except ValueError as e: assert 'confirmed adult' in str(e)
+    except ValueError as e: assert 'adult character metadata' in str(e)
     else: raise AssertionError('Unexpected eligibility: '+id)
+model.profile(data,'chr9999','chest',True)
 print('PASS catalog identity/source checks, adult/minor/unknown statuses and backend restrictions')

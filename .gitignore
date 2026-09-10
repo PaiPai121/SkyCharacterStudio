@@ -17,6 +17,7 @@ assets/previews/
 *.dat
 *.dds
 *.png
+!assets/Sky1stCharacterStudio.png
 *.zip
 *.log
 .env*

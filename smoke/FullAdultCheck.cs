@@ -13,7 +13,7 @@ class FullAdultCheck {
   bool Ready()=>(bool)typeof(MainWindow).GetField("_modelReady",Flags)!.GetValue(w)!;
   var box=(ComboBox)w.FindName("CharacterBox");var modes=(ComboBox)w.FindName("ShapeModeBox");var chest=(ComboBoxItem)w.FindName("ChestModeItem");var view=(LiveModelView)w.FindName("LiveView");
   Pump(Ready);
-  foreach(var id in box.Items.Cast<CharacterRecord>().Where(r=>r.AdultShapeEligible).Select(r=>r.ModelId).OrderBy(id=>id).ToArray()) {
+  foreach(var id in box.Items.Cast<CharacterRecord>().Where(r=>r.AdultShapeEligible && !r.AgeInfo.DefaultedFromBaseGame).Select(r=>r.ModelId).OrderBy(id=>id).ToArray()) {
    box.SelectedItem=box.Items.Cast<CharacterRecord>().Single(r=>r.ModelId==id);Pump(Ready);
    var r=(CharacterRecord)box.SelectedItem;var details=((TextBlock)w.FindName("SelectedMetaText")).Text;
    if(!details.Contains(r.AgeInfo.DisplayText))throw new Exception("Missing age status "+id);
@@ -51,6 +51,7 @@ class FullAdultCheck {
    Console.WriteLine($"PASS WPF selection, age status, capability and preview/export: {id} {r.AgeInfo.DisplayText}");
   }
   var unknown=new CharacterRecord{ModelId="chr9999"};if(unknown.AdultShapeEligible || unknown.AgeInfo.DisplayText!="年龄资料不足")throw new Exception("Unknown misclassified");
-  Console.WriteLine("PASS unknown status; all UI checks ran offscreen without controlling the user desktop");app.Shutdown();
+  var scannedUnknown=new CharacterRecord{ModelId="chr9999",IsBaseGameCharacter=true};if(!scannedUnknown.AdultShapeEligible || !scannedUnknown.AgeInfo.DefaultedFromBaseGame)throw new Exception("Scanned base-game fallback failed");
+  Console.WriteLine("PASS unknown status and scanned base-game adult fallback; all UI checks ran offscreen without controlling the user desktop");app.Shutdown();
  }
 }

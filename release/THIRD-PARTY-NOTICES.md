@@ -8,4 +8,6 @@
 
 Falcom and Clouded Leopard Entertainment own their respective game assets and trademarks. This is an unofficial tool. No game models, textures or game scripts are bundled.
 
+The application icon uses artwork supplied for this build by the project owner. Confirm permission to redistribute it before a public upload; if the artwork is AI-generated, disclose that in the Nexus form. It is not an official Falcom or Clouded Leopard Entertainment icon.
+
 Source needed to modify this tool is provided in source/, tools/ and runtime-source/. Third-party terms apply to their respective components and are not replaced by Nexus page permission settings.

@@ -151,7 +151,7 @@ public partial class MainWindow : Window
         PortraitStatusText.Text=$"正在自动提取 {record.DisplayName} 的模型和贴图…";
         var directory=Path.Combine(_projectRoot,"cache","models",record.ModelId,mode);
         try {
-            await AutoModelService.Run(GamePathBox.Text,record.ModelId,mode,directory);
+            await AutoModelService.Run(GamePathBox.Text,record.ModelId,mode,directory,isBaseGameCharacter:record.IsBaseGameCharacter);
             if(generation!=_previewGeneration)return;
             LiveView.Load(directory,"model.json"); LiveView.Frame(true);
             using(var meta=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(directory,"model-meta.json")))) {

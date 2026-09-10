@@ -10,6 +10,7 @@
     <Platforms>AnyCPU</Platforms>
     <NuGetAudit>false</NuGetAudit>
     <Version>0.1.0-beta</Version>
+    <ApplicationIcon>assets\Sky1stCharacterStudio.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);release-stage/**;release-artifacts/**</DefaultItemExcludes>
   </PropertyGroup>
 
