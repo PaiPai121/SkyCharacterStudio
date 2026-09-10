@@ -192,7 +192,7 @@ public partial class MainWindow : Window
     {
         if(LiveView is null || ShapeSlider is null || !_modelReady) return;
         var strength=(int)Math.Round(ShapeSlider.Value);
-        LiveView.SetStrength(_showAdjustedPreview ? strength : 0);
+        LiveView.SetStrength(_showAdjustedPreview ? strength : 0, CurrentMode=="chest");
         PreviewToggleButton.Content=_showAdjustedPreview ? "切换原版" : "返回当前调整";
         PortraitStatusText.Text=_showAdjustedPreview
             ? $"实时预览：{strength}% · 导出使用同一强度。{(CurrentMode=="chest" ? "胸部／胸廓自动定位" : "整体宽度")}；光照以游戏内为准。"

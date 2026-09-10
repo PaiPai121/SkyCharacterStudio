@@ -185,7 +185,7 @@
                 </Grid.RowDefinitions>
                 <Grid>
                     <StackPanel Orientation="Horizontal"><TextBlock Text="调整方式" VerticalAlignment="Center" Margin="0,0,10,0"/><ComboBox x:Name="ShapeModeBox" Width="180" SelectionChanged="ShapeMode_Changed"><ComboBoxItem Content="整体宽度" Tag="width"/><ComboBoxItem x:Name="ChestModeItem" ToolTipService.ShowOnDisabled="True" Content="胸部／胸廓（自动定位）" Tag="chest"/></ComboBox></StackPanel>
-                    <TextBlock Text="0 = 原版；整体宽度：−500 为 75%，1000 为 150%" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                    <TextBlock Text="0 = 原版；整体宽度：−500 为 75%，1000 为 150%；胸部在 ±100% 外采用平滑响应并自动保护轮廓" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="11" />
                 </Grid>
                 <Grid Grid.Row="1" Margin="0,7,0,0">
                     <Grid.ColumnDefinitions>

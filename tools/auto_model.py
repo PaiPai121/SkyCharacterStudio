@@ -24,12 +24,49 @@ def prepare(game, model_id):
     if not data: raise ValueError('Model has no editable meshes')
     return raw,mats,data
 
+def _unit(vector, fallback):
+    vector=np.asarray(vector,dtype=float)
+    length=float(np.linalg.norm(vector))
+    if not np.isfinite(length) or length<=1e-8:return np.asarray(fallback,dtype=float)
+    return vector/length
+
+def _chest_region(pair, nodes, center, height):
+    """Build an oriented, lobe-shaped influence region from one detected side."""
+    tip=np.asarray(pair['center'],dtype=float)
+    base=np.asarray(pair.get('base_center',nodes.get(pair.get('base',''))),dtype=float)
+    if base.shape!=(3,) or not np.isfinite(base).all():
+        side=1.0 if tip[0]>=center else -1.0
+        base=tip-np.asarray([side,0,1.5],dtype=float)*pair['radius']*.55
+    axis_vector=tip-base
+    axis_length=float(np.linalg.norm(axis_vector))
+    side=float(np.sign(tip[0]-base[0]))
+    if abs(side)<.5:side=1.0 if tip[0]>=center else -1.0
+    axis=_unit(axis_vector,[side,0,1])
+    outward=np.asarray([side,0,0],dtype=float)
+    up=np.asarray([0,1,0],dtype=float)
+    front=_unit(np.cross(outward,up),[0,0,1])
+    if float(np.dot(front,axis))<0:front=-front
+    # Keep the basis orthogonal even when an estimated region is slightly tilted.
+    up=_unit(np.cross(front,outward),[0,1,0])
+    origin=base+axis*axis_length*.55
+    radius=float(pair['radius'])
+    return {
+        'origin':origin,
+        'basis':np.column_stack((outward,up,front)),
+        # A narrower lateral/depth envelope avoids pulling shoulders, cleavage,
+        # and the back surface into the chest lobe.
+        'radii':np.asarray([radius*.82,radius*.72,radius*.84],dtype=float),
+        'side':side,
+        'bone_names':[pair.get('base',''),pair.get('tip','')],
+        'height':height,
+    }
+
 def profile(data, model_id, mode, is_base_game_character=False):
     nodes={n['name']:np.array(n['matrix'][3][:3]) for g in data['mesh_blocks'] for n in g.get('nodes',[])}
     allpos=np.concatenate([np.array(next(b['Buffer'] for b in p['vb'] if b['SemanticName']=='POSITION')) for g in data['mesh_buffers'] for p in g])
     height=float(np.ptp(allpos[:,1]));center=float((allpos[:,0].min()+allpos[:,0].max())/2)
     if height<=0 or not np.isfinite(allpos).all(): raise ValueError('Invalid model bounds')
-    centers=[]
+    regions=[]
     if mode=='chest':
         if not adult_eligible(model_id,is_base_game_character): raise ValueError('Chest editing requires adult character metadata: '+age_info(model_id,is_base_game_character)['status'])
         detection=detect_chest(data)
@@ -37,29 +74,121 @@ def profile(data, model_id, mode, is_base_game_character=False):
         for pair in detection['pairs']:
             radius=pair['radius']
             if radius<height*.01 or radius>height*.15:raise ValueError('Unreliable chest bone geometry')
-            centers.append((np.array(pair['center']),radius))
+            regions.append(_chest_region(pair,nodes,center,height))
     gain=1.0
     if mode=='chest':
         # Bound the sampled deformation gradient across the entire slider range.
         # A displacement gradient norm < 1 keeps local transformations invertible.
-        _,jac=deform(allpos,100,mode,(center,centers,height,1.0))
+        _,jac=deform(allpos,1000,mode,(center,regions,height,1.0))
         max_gradient=float(np.linalg.svd(jac-np.eye(3),compute_uv=False).max())
-        if max_gradient>0:gain=min(1.0,.8/(10*max_gradient))
-    return center,centers,height,gain
+        if max_gradient>0:gain=min(1.0,.8/max_gradient)
+    return center,regions,height,gain
 
-def deform(points, strength, mode, params):
+def _smoothstep(value):
+    value=np.clip(value,0,1)
+    return value*value*(3-2*value)
+
+def _chest_strength(strength):
+    """Keep the normal range linear and soften only the extreme tail."""
+    t=float(np.clip(strength,-500,1000))/100
+    if t>1:return 1+(t-1)*.60
+    if t< -1:return -1+(t+1)*.60
+    return t
+
+def _smooth_vertex_mask(mesh, mask):
+    """Soften quantized skin weights across each primitive's triangle edges."""
+    triangles=np.asarray(mesh.get('ib',{}).get('Buffer',[]),dtype=int).reshape(-1,3)
+    if not len(triangles):return mask
+    total=np.zeros(len(mask),dtype=float);count=np.zeros(len(mask),dtype=float)
+    for column in range(3):
+        source=triangles[:,column];target=triangles[:,(column+1)%3]
+        np.add.at(total,source,mask[target]);np.add.at(count,source,1)
+        np.add.at(total,target,mask[source]);np.add.at(count,target,1)
+    average=np.divide(total,np.maximum(count,1),where=np.maximum(count,1)>0)
+    return .45*mask+.55*np.where(count>0,average,mask)
+
+def mesh_masks(data, group_index, mesh, regions):
+    """Return per-region skinning masks for explicit chest bones.
+
+    Clothing and skin usually carry the chest root weight, while nearby metal,
+    hair, and accessory primitives do not.  The geometric envelope remains the
+    fallback for estimated regions and meshes without blend data.
+    """
+    if not regions:return None
+    buffers={(b['SemanticName'],int(b.get('SemanticIndex',0))):np.asarray(b['Buffer']) for b in mesh.get('vb',[])}
+    weights=buffers.get(('BLENDWEIGHT',0));indices=buffers.get(('BLENDINDICES',0))
+    if weights is None or indices is None:return None
+    nodes=data['mesh_blocks'][group_index].get('nodes',[])
+    lookup={node['name']:i for i,node in enumerate(nodes)}
+    masks=[]
+    for region in regions:
+        bone_indices=[lookup[name] for name in region.get('bone_names',[]) if name in lookup]
+        if not bone_indices:
+            masks.append(None)
+            continue
+        chest_weight=np.where(np.isin(indices,bone_indices),weights,0).sum(axis=1)
+        # Keep a small geometric fallback for clothing vertices whose weight was
+        # quantized away, but strongly suppress unrelated accessories.
+        masks.append(_smooth_vertex_mask(mesh,.08+.92*np.clip(chest_weight/.20,0,1)))
+    return masks
+
+def deform(points, strength, mode, params, masks=None):
     p=np.asarray(points,dtype=float);q=p.copy();j=np.broadcast_to(np.eye(3),(len(p),3,3)).copy()
-    center,centers,height,gain=params
-    t=np.clip(strength,-500,1000)/100
+    center,regions,height,gain=params
+    t=_chest_strength(strength) if mode=='chest' else np.clip(strength,-500,1000)/100
     if mode=='width':
         scale=1+t*.05;q[:,0]=center+(p[:,0]-center)*scale;j[:,0,0]=scale
     else:
-        for tip,radius in centers:
-            d=p-tip;r2=np.sum((d/radius)**2,axis=1);w=np.maximum(0,1-r2)
-            direction=np.array([np.sign(tip[0]-center)*radius*.035,0,radius*.12])*t*gain
-            q+=w[:,None]**3*direction
-            gradient=-6*w[:,None]**2*d/radius**2
-            j+=direction[None,:,None]*gradient[:,None,:]
+        amplitude=t*gain
+        for region_index,region in enumerate(regions):
+            basis=region['basis'];origin=region['origin'];rx,ry,rz=region['radii']
+            local=(p-origin)@basis
+            x,y,z=local[:,0],local[:,1],local[:,2]
+            r2=(x/rx)**2+(y/ry)**2+(z/rz)**2
+            s=np.clip(1-r2,0,1)
+            w=s*s*(3-2*s)
+            dw=6*s*(1-s)
+            grad_w=-2*dw[:,None]*local/np.asarray([rx*rx,ry*ry,rz*rz])
+
+            # Fade the inner edge of each lobe to prevent the two sides from
+            # accumulating into one round ball at the centre line.
+            gate_arg=(x/rx+.75)/.90
+            gate=_smoothstep(gate_arg)
+            gate_grad=np.zeros_like(local)
+            active=(gate_arg>0)&(gate_arg<1)
+            gate_grad[active,0]=6*gate_arg[active]*(1-gate_arg[active])/(.90*rx)
+            weight=w*gate
+            grad_weight=grad_w*gate[:,None]+w[:,None]*gate_grad
+            if masks is not None and region_index<len(masks):
+                mask=masks[region_index]
+                if mask is not None:
+                    weight*=mask
+                    grad_weight*=mask[:,None]
+
+            # The front profile starts gently at the rib side and becomes
+            # strongest at the front surface, avoiding a translated sphere.
+            front_arg=np.clip(.5+.5*z/rz,0,1)
+            front_curve=front_arg*front_arg*(3-2*front_arg)
+            front_profile=.16+.84*front_curve
+            front_grad=np.zeros_like(local)
+            front_active=(front_arg>0)&(front_arg<1)
+            front_grad[front_active,2]=.84*3*front_arg[front_active]*(1-front_arg[front_active])/rz
+
+            terms=np.column_stack((
+                .10*x+.08*rx*front_profile,
+                .06*y,
+                .12*np.maximum(z,0)+.28*rz*front_profile,
+            ))
+            term_grad=np.zeros((len(p),3,3),dtype=float)
+            term_grad[:,0,0]=.10
+            term_grad[:,0,:]+=.08*rx*front_grad
+            term_grad[:,1,1]=.06
+            term_grad[:,2,2]=.12*(z>0)
+            term_grad[:,2,:]+=.28*rz*front_grad
+            local_delta=amplitude*terms*weight[:,None]
+            local_jac=amplitude*(term_grad*weight[:,None,None]+terms[:,:,None]*grad_weight[:,None,:])
+            q+=local_delta@basis.T
+            j+=np.einsum('ab,nbc,cd->nad',basis,local_jac,basis.T)
     return q,j
 
 def run(a):
@@ -73,7 +202,9 @@ def run(a):
         for pi,primitive in enumerate(group['primitives']):
             mb=data['mesh_buffers'][gi][pi]
             buffers={(b['SemanticName'],int(b['SemanticIndex'])):b['Buffer'] for b in mb['vb']}
-            p=np.array(buffers['POSITION',0]);q,j=deform(p,a.strength if a.export else 100,a.mode,params)
+            p=np.array(buffers['POSITION',0])
+            masks=mesh_masks(data,gi,mb,params[1]) if a.mode=='chest' else None
+            q,j=deform(p,a.strength if a.export else 100,a.mode,params,masks)
             elements={e['Semantic']:e for e in primitive['Elements'] if e['Semantic'] in ('POSITION','NORMAL','TANGENT')}
             normals=np.array(buffers.get(('NORMAL',0),np.tile([0,1,0],(len(p),1))))[:,:3]
             if a.export:

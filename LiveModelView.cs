@@ -82,9 +82,17 @@ public sealed class LiveModelView : Grid
         }
         SetStrength(0);
     }
-    public void SetStrength(double strength)
+    private static double ChestStrength(double strength)
     {
-        double t=Math.Clamp(Math.Round(strength),-500,1000)/100;
+        var t = Math.Clamp(Math.Round(strength), -500, 1000) / 100d;
+        if (t > 1) return 1 + (t - 1) * .60;
+        if (t < -1) return -1 + (t + 1) * .60;
+        return t;
+    }
+
+    public void SetStrength(double strength, bool chestMode = false)
+    {
+        double t=chestMode ? ChestStrength(strength) : Math.Clamp(Math.Round(strength),-500,1000)/100d;
         for(int m=0;m<SourceMeshes.Count;m++)
         {
             var source=SourceMeshes[m];

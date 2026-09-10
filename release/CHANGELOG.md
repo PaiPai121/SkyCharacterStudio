@@ -10,3 +10,4 @@
 - Install compatibility restricted to the tested CLE Steam executable 1.0.5.0.
 - Unlisted characters scanned from the original game model archive now default to adult eligibility; explicit minor records still take priority.
 - Added an embedded application icon from the supplied artwork; the portable package launches directly through Sky1stCharacterStudio.exe.
+- Reworked the generic chest deformation with oriented lobe falloff, front-depth progression, smoothed skinning masks and a softened extreme-strength response.

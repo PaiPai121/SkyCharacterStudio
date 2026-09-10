@@ -29,10 +29,10 @@ for id in ['chr5102', 'chr5111', 'chr5107', 'chr5101']:
         assert (edited==raw)==(strength==0)
         with contextlib.redirect_stdout(io.StringIO()): parsed=model.mdl.obtain_mesh_data(edited,mats)
         params=model.profile(data,id,'chest')
-        for source_group,result_group in zip(data['mesh_buffers'],parsed['mesh_buffers']):
+        for gi,(source_group,result_group) in enumerate(zip(data['mesh_buffers'],parsed['mesh_buffers'])):
             for source_mesh,result_mesh in zip(source_group,result_group):
                 get=lambda mesh:np.array(next(b['Buffer'] for b in mesh['vb'] if b['SemanticName']=='POSITION'))
-                expected,_=model.deform(get(source_mesh),strength,'chest',params)
+                expected,_=model.deform(get(source_mesh),strength,'chest',params,model.mesh_masks(data,gi,source_mesh,params[1]))
                 np.testing.assert_allclose(get(result_mesh),expected,atol=1e-6,rtol=0)
     print('PASS actual chest exports, zero byte identity, parsed geometry at -500/0/100/1000:',id)
 # Direct backend calls cannot use an unverified/minor model ID to enable chest mode.

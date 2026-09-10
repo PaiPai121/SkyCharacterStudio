@@ -22,10 +22,10 @@ def check(id):
             assert (raw==edited)==(strength==0),'zero identity or no effect'
             with contextlib.redirect_stdout(io.StringIO()):parsed=m.mdl.obtain_mesh_data(edited,mats)
             max_error=0.;min_det=1.;min_face_cos=1.;changed=0
-            for ga,gb in zip(data['mesh_buffers'],parsed['mesh_buffers']):
+            for gi,(ga,gb) in enumerate(zip(data['mesh_buffers'],parsed['mesh_buffers'])):
                 for a,b in zip(ga,gb):
                     pos=lambda mesh:np.asarray(next(v['Buffer'] for v in mesh['vb'] if v['SemanticName']=='POSITION'))
-                    p=pos(a);q=pos(b);expected,j=m.deform(p,strength,mode,params)
+                    p=pos(a);q=pos(b);expected,j=m.deform(p,strength,mode,params,m.mesh_masks(data,gi,a,params[1]) if mode=='chest' else None)
                     assert np.isfinite(q).all()
                     max_error=max(max_error,float(np.abs(q-expected).max()))
                     min_det=min(min_det,float(np.linalg.det(j).min()))

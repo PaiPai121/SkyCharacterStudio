@@ -66,7 +66,8 @@ def _detect_explicit(data):
         radius=float(np.linalg.norm(tip[1]-base[1])*1.2)
         if not np.isfinite(radius) or radius<=1e-5:
             return {'status':'invalid','detail':'骨骼坐标无效或根部与末端重合','pairs':[]}
-        pairs.append({'base':base[0],'tip':tip[0],'center':tip[1].tolist(),'radius':radius})
+        pairs.append({'base':base[0],'tip':tip[0],'base_center':base[1].tolist(),
+                      'center':tip[1].tolist(),'radius':radius})
     return {'status':'recognized','detail':'已识别左右根部；缺失末端由对侧对称推定，已检查附近网格' if inferred else '已识别左右根部和末端骨骼',
             'bones':candidates+inferred,'inferred_tips':inferred,'can_deform':True,'pairs':pairs}
 
@@ -110,7 +111,9 @@ def _fit_torso(data):
         z=float(np.quantile(region[:,2],.8))
         radius=float(span*.52);center=np.array([x,y,z])
         if np.count_nonzero(np.linalg.norm(region-center,axis=1)<radius*.8)<10:return None
-        pairs.append({'base':'Spine2 / Neck','tip':side+'（蒙皮表面估计）','center':center.tolist(),'radius':radius})
+        pairs.append({'base':'Spine2 / Neck','tip':side+'（蒙皮表面估计）',
+                      'base_center':[float(spine[0]),float(y),float(spine[2])],
+                      'center':center.tolist(),'radius':radius})
     return {'status':'recognized','detail':'已根据脊柱、颈部和蒙皮权重自动定位胸廓表面（估计）',
             'method':'torso_surface','bones':['Spine2','Neck'],'can_deform':True,'pairs':pairs}
 

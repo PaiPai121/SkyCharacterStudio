@@ -22,7 +22,7 @@ Extract the entire archive into a writable folder and run Sky1stCharacterStudio.
 
 - 54 adult models passed offline detection, WPF preview/export comparison and 432 export round trips at four strengths. This does not certify every in-game animation or costume collision.
 - Scherazard and Julia have user-confirmed in-game tests. Generic summons for every other model have script-level checks, not complete in-game coverage.
-- Estimated chest/torso locations are inferred from skeleton landmarks, skinning weights and nearby surfaces. Shape intensity adapts to each model to reduce local inversions.
+- Estimated chest/torso locations are inferred from skeleton landmarks, skinning weights and nearby surfaces. The deformation uses an oriented elliptical region, inner-edge falloff, front-surface progression and smoothed skinning masks rather than a rigid scale. Values beyond ±100% use a softened response and model-specific safety limits to reduce local inversions.
 - Some preview materials differ from the game renderer, especially transparency and special shaders. The UI is Chinese-only in this beta.
 - Loader/proxy conflicts with other mods are possible. Installations make backups; do not remove them before restoring.
 - No original game models, textures or scripts are distributed. The tool reads the player's own installed game and generates local outputs.
