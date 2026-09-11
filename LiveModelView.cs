@@ -16,8 +16,10 @@ public sealed class LiveMesh
     public bool opaque { get; set; }
     public double[][] positions { get; set; } = [];
     public double[][] adjusted { get; set; } = [];
+    public double[][] shrink { get; set; } = [];
     public double[][] normals { get; set; } = [];
     public double[][] normalDelta { get; set; } = [];
+    public double[][] shrinkNormalDelta { get; set; } = [];
     public int normalOffset { get; set; } = -1;
     public double[][] uv { get; set; } = [];
     public int[] indices { get; set; } = [];
@@ -86,8 +88,16 @@ public sealed class LiveModelView : Grid
     {
         var t = Math.Clamp(Math.Round(strength), -500, 1000) / 100d;
         if (t > 1) return 1 + (t - 1) * .60;
-        if (t < -1) return -1 + (t + 1) * .60;
+        if (t < -1) return -1 + (t + 1) * 1.10;
         return t;
+    }
+
+    private static double ChestShrinkBlend(double strength)
+    {
+        // The Python preview sample is the full -500% flatten target.  Blend
+        // toward that target over the whole negative slider range instead of
+        // extrapolating a small -100% sample past the neutral plane.
+        return Math.Clamp(-ChestStrength(strength) / 5.4, 0, 1);
     }
 
     public void SetStrength(double strength, bool chestMode = false)
@@ -96,15 +106,19 @@ public sealed class LiveModelView : Grid
         for(int m=0;m<SourceMeshes.Count;m++)
         {
             var source=SourceMeshes[m];
+            var useShrink=chestMode && t<0 && source.shrink.Length==source.positions.Length;
+            var target=useShrink ? source.shrink : source.adjusted;
+            var blend=useShrink ? ChestShrinkBlend(strength) : t;
             var points=new Point3DCollection(source.positions.Length);
             var normals=new Vector3DCollection(source.positions.Length);
             for(int i=0;i<source.positions.Length;i++) {
-                var a=source.positions[i]; var b=source.adjusted[i];
-                points.Add(new Point3D(a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),a[2]+t*(b[2]-a[2])));
+                var a=source.positions[i]; var b=target[i];
+                points.Add(new Point3D(a[0]+blend*(b[0]-a[0]),a[1]+blend*(b[1]-a[1]),a[2]+blend*(b[2]-a[2])));
                 var n=source.normals[i];var normal=new Vector3D(n[0],n[1],n[2]);
-                if(source.normalDelta.Length==source.positions.Length) {
-                    var d=source.normalDelta[i];
-                    double aa=1+t*d[0],bb=t*d[1],cc=t*d[2],dd=t*d[3],ee=1+t*d[4],ff=t*d[5],gg=t*d[6],hh=t*d[7],ii=1+t*d[8];
+                var normalDelta=useShrink ? source.shrinkNormalDelta : source.normalDelta;
+                if(normalDelta.Length==source.positions.Length) {
+                    var d=normalDelta[i];
+                    double aa=1+blend*d[0],bb=blend*d[1],cc=blend*d[2],dd=blend*d[3],ee=1+blend*d[4],ff=blend*d[5],gg=blend*d[6],hh=blend*d[7],ii=1+blend*d[8];
                     normal=new Vector3D((ee*ii-ff*hh)*n[0]+(ff*gg-dd*ii)*n[1]+(dd*hh-ee*gg)*n[2],
                         (cc*hh-bb*ii)*n[0]+(aa*ii-cc*gg)*n[1]+(bb*gg-aa*hh)*n[2],
                         (bb*ff-cc*ee)*n[0]+(cc*dd-aa*ff)*n[1]+(aa*ee-bb*dd)*n[2]);

@@ -53,9 +53,14 @@ def _chest_region(pair, nodes, center, height):
     return {
         'origin':origin,
         'basis':np.column_stack((outward,up,front)),
-        # A narrower lateral/depth envelope avoids pulling shoulders, cleavage,
-        # and the back surface into the chest lobe.
-        'radii':np.asarray([radius*.82,radius*.72,radius*.84],dtype=float),
+        # A controlled lateral/depth envelope avoids pulling shoulders,
+        # cleavage, and the back surface into the chest lobe while leaving
+        # enough room for a visibly rounded, large adjustment.
+        # Spread the influence a little farther through the rib cage,
+        # especially in depth.  A wider, gentler field gives the slider more
+        # visible range without concentrating the same displacement at a
+        # single pointed tip.
+        'radii':np.asarray([radius*1.132,radius*.994,radius*1.361],dtype=float),
         'side':side,
         'bone_names':[pair.get('base',''),pair.get('tip','')],
         'height':height,
@@ -78,10 +83,15 @@ def profile(data, model_id, mode, is_base_game_character=False):
     gain=1.0
     if mode=='chest':
         # Bound the sampled deformation gradient across the entire slider range.
-        # A displacement gradient norm < 1 keeps local transformations invertible.
-        _,jac=deform(allpos,1000,mode,(center,regions,height,1.0))
-        max_gradient=float(np.linalg.svd(jac-np.eye(3),compute_uv=False).max())
-        if max_gradient>0:gain=min(1.0,.8/max_gradient)
+        # Allow the broad dome to use the larger end of the slider while
+        # keeping both ends of the sampled deformation range at the unit
+        # boundary.  The complete adult audit remains the per-mesh
+        # determinant/face-direction guard for every catalog model.
+        max_gradient=0.0
+        for sample_strength in (-500,1000):
+            _,jac=deform(allpos,sample_strength,mode,(center,regions,height,1.0))
+            max_gradient=max(max_gradient,float(np.linalg.svd(jac-np.eye(3),compute_uv=False).max()))
+        if max_gradient>0:gain=min(1.0,1.0/max_gradient)
     return center,regions,height,gain
 
 def _smoothstep(value):
@@ -89,11 +99,19 @@ def _smoothstep(value):
     return value*value*(3-2*value)
 
 def _chest_strength(strength):
-    """Keep the normal range linear and soften only the extreme tail."""
+    """Keep the normal range linear and give the shrink tail a flatter target."""
     t=float(np.clip(strength,-500,1000))/100
     if t>1:return 1+(t-1)*.60
-    if t< -1:return -1+(t+1)*.60
+    if t< -1:return -1+(t+1)*1.10
     return t
+
+def _chest_shrink_factor(t):
+    """Map the negative slider to a blend with the neutral chest plane."""
+    # _chest_strength(-500) is -5.4.  Keep a small residual thickness at the
+    # slider minimum so the clothing shell does not collapse into the torso;
+    # the result reads as flat in-game while retaining a safe surface normal
+    # on every catalog model.
+    return .85*float(np.clip(-t/5.4,0,1))
 
 def _smooth_vertex_mask(mesh, mask):
     """Soften quantized skin weights across each primitive's triangle edges."""
@@ -159,34 +177,92 @@ def deform(points, strength, mode, params, masks=None):
             gate_grad[active,0]=6*gate_arg[active]*(1-gate_arg[active])/(.90*rx)
             weight=w*gate
             grad_weight=grad_w*gate[:,None]+w[:,None]*gate_grad
-            if masks is not None and region_index<len(masks):
+            # Positive growth follows the skinning weights so accessories stay
+            # attached to their original bones.  For shrink, those quantized
+            # per-vertex weights can disagree on duplicated seam vertices and
+            # open visible cracks.  The geometric field is continuous by
+            # itself, so omit the discontinuous mask on the negative side.
+            if amplitude>=0 and masks is not None and region_index<len(masks):
                 mask=masks[region_index]
                 if mask is not None:
                     weight*=mask
                     grad_weight*=mask[:,None]
 
-            # The front profile starts gently at the rib side and becomes
-            # strongest at the front surface, avoiding a translated sphere.
-            front_arg=np.clip(.5+.5*z/rz,0,1)
-            front_curve=front_arg*front_arg*(3-2*front_arg)
-            front_profile=.16+.84*front_curve
-            front_grad=np.zeros_like(local)
-            front_active=(front_arg>0)&(front_arg<1)
-            front_grad[front_active,2]=.84*3*front_arg[front_active]*(1-front_arg[front_active])/rz
+            if amplitude<0:
+                # Shrink is a target operation: move only the part of the
+                # shell that is in front of the rib-cage plane (local z>0)
+                # back toward that plane.  Keeping x/y fixed preserves the
+                # shoulder and under-bust silhouette; the smooth support field
+                # fades the motion into the torso and keeps every seam closed.
+                factor=_chest_shrink_factor(t)
+                front=np.maximum(z,0)
+                local_delta=np.zeros_like(local)
+                local_delta[:,2]=-factor*front*weight
+                local_jac=np.zeros((len(p),3,3),dtype=float)
+                dz=(z>0).astype(float)
+                local_jac[:,2,:]=-factor*(front[:,None]*grad_weight+weight[:,None]*np.column_stack((np.zeros(len(p)),np.zeros(len(p)),dz)))
+            else:
+                # The front profile starts gently at the rib side and becomes
+                # strongest at the front surface.  A second, planar dome profile
+                # makes the displacement largest around the middle of the lobe and
+                # fade toward its upper/lower and outer edges.  Without that dome,
+                # a large slider value turns the existing clothing shell into a
+                # pointed wedge even though the support field is smooth.
+                front_arg=np.clip(.5+.5*z/rz,0,1)
+                front_curve=front_arg*front_arg*(3-2*front_arg)
+                front_grad=np.zeros_like(local)
+                front_active=(front_arg>0)&(front_arg<1)
+                front_grad[front_active,2]=.84*3*front_arg[front_active]*(1-front_arg[front_active])/rz
 
-            terms=np.column_stack((
-                .10*x+.08*rx*front_profile,
-                .06*y,
-                .12*np.maximum(z,0)+.28*rz*front_profile,
-            ))
-            term_grad=np.zeros((len(p),3,3),dtype=float)
-            term_grad[:,0,0]=.10
-            term_grad[:,0,:]+=.08*rx*front_grad
-            term_grad[:,1,1]=.06
-            term_grad[:,2,2]=.12*(z>0)
-            term_grad[:,2,:]+=.28*rz*front_grad
-            local_delta=amplitude*terms*weight[:,None]
-            local_jac=amplitude*(term_grad*weight[:,None,None]+terms[:,:,None]*grad_weight[:,None,:])
+                dome_arg=np.clip(1-(x/rx)**2-(y/ry)**2,0,1)
+                dome_curve=dome_arg*dome_arg*(3-2*dome_arg)
+                dome_grad=np.zeros_like(local)
+                dome_active=(dome_arg>0)&(dome_arg<1)
+                dome_derivative=6*dome_arg[dome_active]*(1-dome_arg[dome_active])
+                dome_grad[dome_active,0]=dome_derivative*(-2*x[dome_active]/(rx*rx))
+                dome_grad[dome_active,1]=dome_derivative*(-2*y[dome_active]/(ry*ry))
+                front_profile=front_curve*dome_curve
+                profile_grad=dome_curve[:,None]*front_grad+front_curve[:,None]*dome_grad
+
+                # Added volume is allowed to grow; the gravity cue is a small
+                # downward settlement of the lower/front portion while the
+                # upper attachment remains comparatively supported.  This is
+                # a static visual approximation, not a volume-preserving
+                # simulation.
+                sag_arg=np.clip(.5-.5*y/ry,0,1)
+                sag_curve=sag_arg*sag_arg*(3-2*sag_arg)
+                sag_grad=np.zeros_like(local)
+                sag_active=(sag_arg>0)&(sag_arg<1)
+                sag_grad[sag_active,1]=6*sag_arg[sag_active]*(1-sag_arg[sag_active])*(-.5/ry)
+                sag_factor=.35+.65*sag_curve
+                sag_profile=front_profile*sag_factor
+                sag_profile_grad=sag_factor[:,None]*profile_grad+.65*front_profile[:,None]*sag_grad
+
+                # The upper pole is held by the chest wall while the lower
+                # pole carries more of the added load.  Apply that asymmetry
+                # to the forward dome and vertical spread instead of making
+                # the entire lobe inflate uniformly.
+                growth_factor=.78+.22*sag_curve
+                growth_profile=front_profile*growth_factor
+                growth_profile_grad=growth_factor[:,None]*profile_grad+.22*front_profile[:,None]*sag_grad
+                vertical_scale=.12+.10*sag_curve
+                vertical_scale_grad=.10*sag_grad
+
+                terms=np.column_stack((
+                    .28*x+.05*rx*growth_profile,
+                    vertical_scale*y-.09*rz*sag_profile,
+                    .10*np.maximum(z,0)+.18*rz*growth_profile,
+                ))
+                term_grad=np.zeros((len(p),3,3),dtype=float)
+                term_grad[:,0,0]=.28
+                term_grad[:,0,:]+=.05*rx*growth_profile_grad
+                term_grad[:,1,1]=vertical_scale
+                term_grad[:,1,:]+=y[:,None]*vertical_scale_grad
+                term_grad[:,1,:]-=.09*rz*sag_profile_grad
+                term_grad[:,2,2]=.10*(z>0)
+                term_grad[:,2,:]+=.18*rz*growth_profile_grad
+                local_delta=amplitude*terms*weight[:,None]
+                local_jac=amplitude*(term_grad*weight[:,None,None]+terms[:,:,None]*grad_weight[:,None,:])
             q+=local_delta@basis.T
             j+=np.einsum('ab,nbc,cd->nad',basis,local_jac,basis.T)
     return q,j
@@ -205,6 +281,12 @@ def run(a):
             p=np.array(buffers['POSITION',0])
             masks=mesh_masks(data,gi,mb,params[1]) if a.mode=='chest' else None
             q,j=deform(p,a.strength if a.export else 100,a.mode,params,masks)
+            shrink=None;shrink_j=None
+            if not a.export and a.mode=='chest':
+                # Keep a separate full-flatten target for the live view.  The
+                # negative side intentionally does not use quantized bone
+                # masks, so duplicated seam vertices remain coincident.
+                shrink,shrink_j=deform(p,-500,a.mode,params,masks)
             elements={e['Semantic']:e for e in primitive['Elements'] if e['Semantic'] in ('POSITION','NORMAL','TANGENT')}
             normals=np.array(buffers.get(('NORMAL',0),np.tile([0,1,0],(len(p),1))))[:,:3]
             if a.export:
@@ -236,7 +318,7 @@ def run(a):
                 if texname:missing.add(texname)
             uv=buffers.get(('TEXCOORD',0),[[0,0]]*len(p))
             uv=[[1-abs((u[0]%2)-1) if tex.get('wrapS')==1 else u[0]%1,(1-u[1])%1] for u in uv]
-            result.append(dict(name=f'{gi}_{group["name"]}_{pi}',hidden=primitive['material'] in ('shadow','chr_shadow','eyes_add','face_02'),opaque=True,positions=p.tolist(),adjusted=q.tolist(),normals=normals.tolist(),normalDelta=(j-np.eye(3)).reshape(-1,9).tolist(),normalOffset=elements.get('NORMAL',{}).get('offset',-1),uv=uv,indices=[i for t in mb['ib']['Buffer'] for i in t],texture=png,positionOffset=elements['POSITION']['offset']))
+            result.append(dict(name=f'{gi}_{group["name"]}_{pi}',hidden=primitive['material'] in ('shadow','chr_shadow','eyes_add','face_02'),opaque=True,positions=p.tolist(),adjusted=q.tolist(),shrink=[] if shrink is None else shrink.tolist(),normals=normals.tolist(),normalDelta=(j-np.eye(3)).reshape(-1,9).tolist(),shrinkNormalDelta=[] if shrink_j is None else (shrink_j-np.eye(3)).reshape(-1,9).tolist(),normalOffset=elements.get('NORMAL',{}).get('offset',-1),uv=uv,indices=[i for t in mb['ib']['Buffer'] for i in t],texture=png,positionOffset=elements['POSITION']['offset']))
     if a.export:
         path=a.out/(a.model+'.mdl');path.write_bytes(patched)
         (a.out/'report.json').write_text(json.dumps(dict(model=a.model,mode=a.mode,strength=a.strength,source_sha256=hashlib.sha256(raw).hexdigest(),output_sha256=hashlib.sha256(patched).hexdigest(),same_size=len(raw)==len(patched))))

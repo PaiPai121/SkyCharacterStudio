@@ -1,4 +1,4 @@
-# Sky 1st Character Studio — 0.1.0 beta
+# Sky 1st Character Studio — 0.1.3 beta
 
 Windows x64 character shape editor for the Clouded Leopard Entertainment Steam edition of Trails in the Sky the 1st, executable version 1.0.5.0. Other editions/builds are not verified; installation checks the executable fingerprint and stops on a mismatch.
 
@@ -28,4 +28,4 @@ Extract the entire archive into a writable folder and run Sky1stCharacterStudio.
 - No original game models, textures or scripts are distributed. The tool reads the player's own installed game and generates local outputs.
 - The application icon uses the artwork supplied for this build by the project owner. Confirm that you have permission to redistribute it before a public upload; if the artwork is AI-generated, disclose that in the Nexus form. It is not an official Falcom or Clouded Leopard Entertainment icon.
 
-Credits and component licenses: THIRD-PARTY-NOTICES.md, licenses/, tools/vendor/LICENSE, runtime-source/vendor/ed9modmanager/LICENSE, and runtime/python/.
+Credits and component licenses: THIRD-PARTY-NOTICES.md, licenses/, tools/vendor/LICENSE, and runtime/python/. The player ZIP contains runtime files only; project/build source is kept in the source repository.

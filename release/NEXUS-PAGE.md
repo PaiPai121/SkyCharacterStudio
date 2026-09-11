@@ -6,7 +6,7 @@ Game domain: trailsintheskyfirstchapter
 
 Name: Sky 1st Character Studio - CLE Edition (Beta)
 
-Version: 0.1.0-beta
+Version: 0.1.3-beta
 
 Summary: Offline character shape editor with real model previews, local installation backups and optional selected-character test summons. CLE Steam 1.0.5.0 only. Chinese UI.
 
@@ -20,7 +20,7 @@ The interface is currently in Chinese. See README-PLAYERS.md for Chinese instruc
 
 Optional F8 summons are off by default. Enable the test option before applying, enter a free-roaming field scene and press F8. Press F9 then F8 to compare the original and edited model. This creates a temporary test actor, not a party member.
 
-Offline coverage: 54 adult models, 432 export round trips, WPF preview/export position and normal checks, and front/side image review. User-confirmed in-game tests include Scherazard and Julia. Not every character animation, costume collision or renderer material has been tested in-game. See the bundled README for limitations and third-party notices.
+Offline coverage: 54 adult models, 432 export round trips, WPF preview/export position and normal checks, and front/side image review. User-confirmed in-game tests include Scherazard and Julia. Not every character animation, costume collision or renderer material has been tested in-game. See the bundled README for limitations and third-party notices. The player ZIP contains runtime files only; development source is kept separately in the project repository.
 
 ## Files / settings to review in the Nexus form
 

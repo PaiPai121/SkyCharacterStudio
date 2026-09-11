@@ -2,7 +2,7 @@
 import argparse,hashlib,json,shutil,subprocess,sys
 from pathlib import Path
 
-p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--native-dir',type=Path);p.add_argument('--version',default='0.1.0-beta');a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--native-dir',type=Path);p.add_argument('--version',default='0.1.3-beta');a=p.parse_args()
 root=Path(__file__).resolve().parents[1];mod=root.parent/'Sky1st-Scherazard-Mod'
 native_dir=(a.native_dir or (root/'release-stage'/'native')).resolve()
 if hashlib.sha256((root/'assets/character-ages.json').read_bytes()).hexdigest()!=(root/'release/verified-catalog.sha256').read_text().strip():
@@ -22,8 +22,6 @@ if dat_builder is None:raise SystemExit('Missing build_summon_dat.exe; build nat
 copy(dat_builder,a.out/'tools'/'build_summon_dat.exe')
 for name in ['kuro_mdl_export_meshes.py','lib_fmtibvb.py','LICENSE','README.md']:copy(mod/'vendor'/name,a.out/'tools/vendor'/name)
 copy(mod/'scripts/pac.py',a.out/'tools/scripts/pac.py')
-copy(root/'runtime-source',a.out/'runtime-source')
-
 python=Path(sys.base_prefix);runtime=a.out/'runtime/python'
 for name in ['python.exe','python3.dll','python311.dll','vcruntime140.dll','vcruntime140_1.dll','LICENSE.txt']:copy(python/name,runtime/name)
 copy(python/'DLLs',runtime/'DLLs')
@@ -64,15 +62,10 @@ for framework in frameworks:
  for file in package.iterdir():
   if file.is_file() and ('license' in file.name.lower() or 'notice' in file.name.lower()):copy(file,a.out/'licenses'/framework['name']/file.name)
 for name in ['README-PLAYERS.md','THIRD-PARTY-NOTICES.md','CHANGELOG.md']:copy(root/'release'/name,a.out/name)
-for name in ['App.xaml','App.xaml.cs','Sky1stCharacterStudio.csproj']:
- copy(root/name,a.out/'source'/name)
-for file in root.glob('*.cs'):copy(file,a.out/'source'/file.name)
-copy(root/'MainWindow.xaml',a.out/'source/MainWindow.xaml')
-copy(root/'release/BuildSource.ps1',a.out/'source/BuildSource.ps1')
-copy(root/'build-release.ps1',a.out/'source/build-release.ps1')
-copy(root/'BuildRelease.cmd',a.out/'source/BuildRelease.cmd')
-copy(root/'tools/package_release.py',a.out/'source/package_release.py')
-copy(root/'tools/make_app_icon.py',a.out/'source/make_app_icon.py')
+# The Nexus/player ZIP is runtime-only.  Build inputs and project source stay
+# in the repository (and can be published separately when a source release is
+# needed); shipping them here makes the portable package harder to audit and
+# is unnecessary for normal installation.
 for f in a.out.rglob('*'):
  if f.suffix.lower() in ['.mdl','.dat','.dds','.pac','.blend']:raise RuntimeError('Game asset in package: '+str(f))
 git=lambda *args:subprocess.check_output(['git','-c','safe.directory='+root.as_posix(),'-C',str(root),*args]).decode().strip()

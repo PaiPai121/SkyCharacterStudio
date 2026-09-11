@@ -27,7 +27,7 @@ class FullAdultCheck {
      while(off+8<=raw.Length){if(BitConverter.ToInt32(raw,off)==4)start=off+8;off+=8+BitConverter.ToInt32(raw,off+4);}
      double max=0;
      for(int m=0;m<view.Geometry.Count;m++)for(int i=0;i<view.Geometry[m].Positions.Count;i++) {var p=view.Geometry[m].Positions[i];int o=start+view.SourceMeshes[m].positionOffset+i*12;max=Math.Max(max,Math.Abs(p.X-BitConverter.ToSingle(raw,o)));max=Math.Max(max,Math.Abs(p.Y-BitConverter.ToSingle(raw,o+4)));max=Math.Max(max,Math.Abs(p.Z-BitConverter.ToSingle(raw,o+8)));}
-     if(max>1e-6)throw new Exception("Preview/export mismatch "+max);
+     if(max>1e-6)throw new Exception($"Preview/export mismatch {id} {strength}: {max}");
      if(strength!=0)for(int mesh=0;mesh<view.Geometry.Count;mesh++) {
       var src=view.SourceMeshes[mesh];if(src.normalOffset<0)continue;
       for(int vertex=0;vertex<view.Geometry[mesh].Normals.Count;vertex++) {
@@ -36,7 +36,7 @@ class FullAdultCheck {
        if(error>.004)throw new Exception("Preview/export normal mismatch "+error);
       }
      }
-     if(strength==0 || strength==1000) {
+     if(strength==-500 || strength==0 || strength==1000) {
       foreach(var yaw in new[]{0.0,1.2}) {
        typeof(LiveModelView).GetField("angle",Flags)!.SetValue(view,yaw);
        view.Frame(false);view.Measure(new Size(240,300));view.Arrange(new Rect(0,0,240,300));view.UpdateLayout();

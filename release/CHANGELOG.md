@@ -1,3 +1,9 @@
+# 0.1.3 beta
+
+- Runtime-only player package for Nexus/manual installation; development source and native build inputs are no longer copied into the portable ZIP.
+- Updated release metadata and player documentation to match the current generic chest deformation and support-load behavior.
+- Retained the same verified CLE Steam 1.0.5.0 compatibility guard and offline validation suite.
+
 # 0.1.0 beta
 
 - Automatic game-resource scan and model/texture preview.
