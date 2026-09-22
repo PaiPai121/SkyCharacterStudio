@@ -13,15 +13,15 @@ public static class CharacterNames {
   return new(StringComparer.OrdinalIgnoreCase);
  }
  public static Dictionary<string,string> Parse(byte[] data) {
-  if(data.Length<8 || Encoding.ASCII.GetString(data,0,4)!="#TBL")throw new InvalidDataException("角色名称表格式不支持");
+  if(data.Length<8 || Encoding.ASCII.GetString(data,0,4)!="#TBL")throw new InvalidDataException(UiText.T("error.names.format"));
   uint headers=BitConverter.ToUInt32(data,4);
-  if(8L+headers*80L>data.Length)throw new InvalidDataException("名称表头越界");
+  if(8L+headers*80L>data.Length)throw new InvalidDataException(UiText.T("error.names.bounds"));
   string Text(ulong offset) {
    if(offset==0)return "";
    if(offset>=(ulong)data.Length)throw new InvalidDataException("名称表字符串越界");
    int start=(int)offset,end=start;
    while(end<data.Length && data[end]!=0 && end-start<4096)end++;
-   if(end==data.Length || end-start>=4096)throw new InvalidDataException("名称表字符串未结束");
+   if(end==data.Length || end-start>=4096)throw new InvalidDataException(UiText.T("error.names.terminated"));
    return Encoding.UTF8.GetString(data,start,end-start).Trim();
   }
   var names=new Dictionary<string,List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -29,7 +29,7 @@ public static class CharacterNames {
    int h=8+i*80;
    if(Encoding.ASCII.GetString(data,h,64).TrimEnd('\0')!="NameTableData")continue;
    uint start=BitConverter.ToUInt32(data,h+68),stride=BitConverter.ToUInt32(data,h+72),count=BitConverter.ToUInt32(data,h+76);
-   if(stride!=104 || start+(ulong)stride*count>(ulong)data.Length)throw new InvalidDataException("名称表行布局不支持");
+   if(stride!=104 || start+(ulong)stride*count>(ulong)data.Length)throw new InvalidDataException(UiText.T("error.names.layout"));
    for(uint r=0;r<count;r++) {
     int row=checked((int)(start+r*stride));
     string name=Text(BitConverter.ToUInt64(data,row+8)),model=Text(BitConverter.ToUInt64(data,row+16));

@@ -16,6 +16,7 @@ public sealed class CharacterRecord
 {
     public string ModelId { get; init; } = "";
     public string DisplayName { get; init; } = "";
+    public string LocalizedName => UiText.CharacterName(ModelId, DisplayName);
     public PacEntry ModelEntry { get; init; } = new();
     public PacEntry? ModelInfoEntry { get; init; }
     public PacEntry? PreviewEntry { get; init; }
@@ -24,12 +25,12 @@ public sealed class CharacterRecord
 
     public string ModelFileName => $"{ModelId}.mdl";
     public string ArchiveSizeText => $"{ModelEntry.Size / 1024d / 1024d:0.00} MB";
-    public string PreviewText => PreviewEntry is null ? "未找到角色头像，使用轮廓预览" : "已找到角色头像贴图";
+    public string PreviewText => PreviewEntry is null ? UiText.T("portrait.missing") : UiText.T("portrait.found");
     public CharacterAgeInfo AgeInfo => CharacterAgeCatalog.Get(ModelId, IsBaseGameCharacter);
     public bool AdultShapeEligible => AgeInfo.IsAdult;
-    public string SupportText => "自动读取模型、材质和骨骼；加载成功后可调整";
+    public string SupportText => UiText.T("support");
 
-    public override string ToString() => $"{DisplayName}  ·  {ModelId}";
+    public override string ToString() => $"{LocalizedName}  ·  {ModelId}";
 }
 
 public sealed class ShapePreset

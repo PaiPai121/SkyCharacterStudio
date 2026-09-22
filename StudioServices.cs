@@ -81,7 +81,7 @@ public sealed class PreviewService
     {
         var script = FindFileUpwards("tools", "preview_dds.py")
             ?? System.IO.Path.Combine(AppContext.BaseDirectory, "tools", "preview_dds.py");
-        if (!File.Exists(script)) throw new FileNotFoundException("找不到 DDS 预览脚本", script);
+        if (!File.Exists(script)) throw new FileNotFoundException(UiText.T("error.preview.script"), script);
         var python = ResolvePython();
         var start = new ProcessStartInfo
         {
@@ -96,7 +96,7 @@ public sealed class PreviewService
         start.ArgumentList.Add(script);
         start.ArgumentList.Add(input);
         start.ArgumentList.Add(output);
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("无法启动 DDS 预览脚本");
+        using var process = Process.Start(start) ?? throw new InvalidOperationException(UiText.T("error.preview.start"));
         await process.WaitForExitAsync(cancellationToken);
         if (process.ExitCode != 0)
             throw new InvalidOperationException((await process.StandardError.ReadToEndAsync(cancellationToken)).Trim());
@@ -156,16 +156,16 @@ public sealed class PreviewService
             var titleBrush = new SolidColorBrush(Color.FromRgb(215, 177, 91));
             var mutedBrush = new SolidColorBrush(Color.FromRgb(145, 172, 182));
             var borderPen = new Pen(new SolidColorBrush(Color.FromRgb(77, 124, 132)), 2);
-            DrawText(drawing, "原版 / 调整后 3D 对照", new Point(25, 12), 22, titleBrush);
-            DrawImagePanel(drawing, original, new Rect(left, 50, panelWidth, panelHeight), "原版", borderPen, titleBrush);
-            DrawImagePanel(drawing, adjusted, new Rect(right, 50, panelWidth, panelHeight), "调整后（100%）", borderPen, titleBrush);
+            DrawText(drawing, UiText.T("comparison.title"), new Point(25, 12), 22, titleBrush);
+            DrawImagePanel(drawing, original, new Rect(left, 50, panelWidth, panelHeight), UiText.T("comparison.original"), borderPen, titleBrush);
+            DrawImagePanel(drawing, adjusted, new Rect(right, 50, panelWidth, panelHeight), UiText.T("comparison.adjusted"), borderPen, titleBrush);
 
             var cropRect = new Int32Rect(385, 260, 330, 235);
             var originalCrop = CropBitmap(original, cropRect);
             var adjustedCrop = CropBitmap(adjusted, cropRect);
-            DrawImagePanel(drawing, originalCrop, new Rect(left, 625, panelWidth, 245), "胸部局部放大 · 原版", borderPen, titleBrush);
-            DrawImagePanel(drawing, adjustedCrop, new Rect(right, 625, panelWidth, 245), "胸部局部放大 · 调整后", borderPen, titleBrush);
-            DrawText(drawing, "右侧是调整后模型；下方局部图用于观察细微轮廓差异。", new Point(25, 875), 12, mutedBrush);
+            DrawImagePanel(drawing, originalCrop, new Rect(left, 625, panelWidth, 245), UiText.T("comparison.crop.original"), borderPen, titleBrush);
+            DrawImagePanel(drawing, adjustedCrop, new Rect(right, 625, panelWidth, 245), UiText.T("comparison.crop.adjusted"), borderPen, titleBrush);
+            DrawText(drawing, UiText.T("comparison.note"), new Point(25, 875), 12, mutedBrush);
         }
 
         var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
@@ -208,7 +208,7 @@ public sealed class PreviewService
     {
         var formatted = new FormattedText(
             text,
-            CultureInfo.GetCultureInfo("zh-CN"),
+            UiText.IsEnglish ? CultureInfo.GetCultureInfo("en-US") : CultureInfo.GetCultureInfo("zh-CN"),
             FlowDirection.LeftToRight,
             new Typeface("Microsoft YaHei UI"),
             size,
@@ -230,8 +230,8 @@ public sealed class PreviewService
             drawing.DrawEllipse(new SolidColorBrush(Color.FromArgb(60, 83, 201, 187)), null, new Point(size / 2, 218), 94, 94);
             drawing.DrawRectangle(new SolidColorBrush(Color.FromArgb(65, 72, 130, 158)), null, new Rect(188, 306, 184, 142));
             var label = new FormattedText(
-                $"{displayName}\n{modelId}\n\n暂无头像预览",
-                CultureInfo.GetCultureInfo("zh-CN"), FlowDirection.LeftToRight,
+                $"{UiText.CharacterName(modelId, displayName)}\n{modelId}\n\n{UiText.T("placeholder.no.portrait")}",
+                UiText.IsEnglish ? CultureInfo.GetCultureInfo("en-US") : CultureInfo.GetCultureInfo("zh-CN"), FlowDirection.LeftToRight,
                 new Typeface("Microsoft YaHei"), 22, new SolidColorBrush(Color.FromRgb(224, 235, 239)),
                 1.0);
             label.TextAlignment = TextAlignment.Center;
@@ -258,13 +258,14 @@ public static class ExportService
         var game=Directory.GetParent(Directory.GetParent(Directory.GetParent(modelArchive.Path)!.FullName)!.FullName)!.FullName;
         await AutoModelService.Run(game,record.ModelId,mode,modelRoot,strength,record.IsBaseGameCharacter);
         var shapeApplied=true;
-        string helperMessage=$"自动模型调整：{mode}；按当前模型解析骨骼和顶点偏移。";
+        string helperMessage = UiText.T(mode.Equals("chest", StringComparison.OrdinalIgnoreCase)
+            ? "export.helper.chest" : "export.helper.width");
 
         var presetPath = System.IO.Path.Combine(exportRoot, "shape_preset.json");
         var preset = new ShapePreset
         {
             ModelId = record.ModelId,
-            DisplayName = record.DisplayName,
+            DisplayName = record.LocalizedName,
             ShapeStrength = strength,
             SourceModelEntry = record.ModelEntry.Name,
             SourceArchive = modelArchive.Path,
@@ -272,8 +273,8 @@ public static class ExportService
             ShapeEditApplied = shapeApplied,
             GeneratedUtc = DateTime.UtcNow,
             Notes = record.IsSupportedShapeEdit
-                ? helperMessage ?? "已从校验过的原版生成指定强度。"
-                : "该角色尚未完成拓扑验证，本次只导出原版模型副本和参数预设。"
+                ? $"{helperMessage} {UiText.T("export.notes.verified")}"
+                : UiText.T("export.notes.unverified")
         };
         await File.WriteAllTextAsync(presetPath,
             JsonSerializer.Serialize(preset, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8, cancellationToken);
@@ -283,8 +284,8 @@ public static class ExportService
             runtimePath = await BuildRuntimePackageAsync(record, modelPath, exportRoot, projectRoot, game, strength, cancellationToken,enableSummon);
 
         var message = record.IsSupportedShapeEdit
-            ? (shapeApplied ? $"已导出 {record.DisplayName} 的 {strength}% 形体模型。" : $"已导出模型副本；{helperMessage ?? "形体补丁未应用"}")
-            : $"已导出 {record.DisplayName} 的原版副本，形体参数已写入预设（尚未验证该模型的拓扑）。";
+            ? (shapeApplied ? UiText.F("export.message", record.LocalizedName, strength) : UiText.T("export.copy.message"))
+            : UiText.F("export.unverified.message", record.LocalizedName);
         return new ExportResult
         {
             OutputDirectory = exportRoot,
@@ -312,17 +313,17 @@ public static class ExportService
             var runtimeModel = System.IO.Path.Combine(destination, "Mod", "ScherazardSummon", "asset", "common", "model", record.ModelFileName);
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(runtimeModel)!);
             File.Copy(modelPath, runtimeModel, true);
-            if(enableSummon)await StudioSummonService.ConfigureAsync(destination,game,record.ModelId,record.DisplayName);
+            if(enableSummon)await StudioSummonService.ConfigureAsync(destination,game,record.ModelId,record.LocalizedName);
             else {
                 var ini=Path.Combine(destination,"ED9Loader","config","EventStarter.ini");
                 File.WriteAllText(ini,"[Settings]\r\nenabled=0\r\n");
                 File.WriteAllText(Path.Combine(destination,"Mod","ScherazardSummon","add_dat_ini.json"),"{\"inject\":[]}");
             }
             await File.WriteAllTextAsync(System.IO.Path.Combine(destination, "CharacterStudioOverride.txt"),
-                $"模型：{record.DisplayName} ({record.ModelId})\r\n形体强度：{strength}%\r\n\r\n这是离线生成的测试包副本。请先退出游戏，再手工将此目录内容复制到游戏目录；工具不会自动安装或启动游戏。\r\n",
+                UiText.F("runtime.override", record.LocalizedName, record.ModelId, strength),
                 Encoding.UTF8, cancellationToken);
         }
-        else throw new DirectoryNotFoundException("找不到已验证的游戏运行组件");
+        else throw new DirectoryNotFoundException(UiText.T("error.no.runtime"));
         return destination;
     }
 

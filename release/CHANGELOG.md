@@ -1,3 +1,10 @@
+# 0.2.0 beta
+
+- Added a Chinese/English UI switch in the header; Chinese remains the default and the choice is remembered per user.
+- Localized scan/install/restore status, model metadata, age and bone-detection details, contour preview labels, comparison images and generated package notes.
+- Added English character-name mappings for the main cast and safe `Character chrXXXX` fallbacks for unknown Chinese resource names.
+- Kept the existing model backend and installation behavior unchanged; this release adds language coverage without changing deformation math.
+
 # 0.1.3 beta
 
 - Runtime-only player package for Nexus/manual installation; development source and native build inputs are no longer copied into the portable ZIP.

@@ -10,6 +10,7 @@ class AutoCheck {
  static readonly BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
  static void Pump(Func<bool> done) {var deadline=DateTime.UtcNow.AddSeconds(60);while(!done()){if(DateTime.UtcNow>deadline)throw new Exception("Preview timeout");var f=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,new Action(()=>f.Continue=false));Dispatcher.PushFrame(f);Thread.Sleep(10);}}
  [STAThread] static void Main() {
+  UiText.SetLanguage(UiLanguage.Chinese, persist:false);
   var app=new Application();SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
   var window=new MainWindow();var scan=(Task)typeof(MainWindow).GetMethod("ScanAsync",flags)!.Invoke(window,null)!;Pump(()=>scan.IsCompleted);scan.GetAwaiter().GetResult();
   var box=(ComboBox)window.FindName("CharacterBox");var view=(LiveModelView)window.FindName("LiveView");

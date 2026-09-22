@@ -12,7 +12,7 @@ public static class GameInstaller
         var root = Path.GetFullPath(path.Trim());
         if (!File.Exists(Path.Combine(root, "sora_1st.exe")) ||
             !File.Exists(Path.Combine(root, "pac", "steam", "asset_common_model.pac")))
-            throw new InvalidOperationException("请选择同时包含 sora_1st.exe 和 pac 文件夹的游戏根目录。");
+            throw new InvalidOperationException(UiText.T("error.invalid.game.root"));
         return root;
     }
 
@@ -27,12 +27,12 @@ public static class GameInstaller
     {
         var path = Path.GetFullPath(Path.Combine(root, relative));
         if (!path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            throw new IOException("安装路径超出目标目录。");
+            throw new IOException(UiText.T("error.path.outside"));
         for (var current = path; current is not null; current = Path.GetDirectoryName(current))
         {
             if ((File.Exists(current) || Directory.Exists(current)) &&
                 (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("安装目标或来源包含链接目录，请选择实际目录：" + current);
+                throw new IOException(UiText.F("error.link.path", current));
         }
         return path;
     }
@@ -41,17 +41,17 @@ public static class GameInstaller
     {
         gameRoot = ValidateGameRoot(gameRoot);
         runningCheck ??= IsGameRunning;
-        if (runningCheck()) throw new InvalidOperationException("游戏正在运行，请先退出游戏再安装。");
+        if (runningCheck()) throw new InvalidOperationException(UiText.T("error.game.running"));
         var compatibility=PreviewService.FindFileUpwards("assets","supported-game.json");
         if(compatibility is not null) {
             using var supported=JsonDocument.Parse(File.ReadAllText(compatibility));
             var hash=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(gameRoot,"sora_1st.exe"))));
-            if(hash!=supported.RootElement.GetProperty("sha256").GetString())throw new InvalidOperationException("当前游戏程序不在已验证版本中。此测试版仅支持云豹 Steam 1.0.5.0，未安装任何文件。");
+            if(hash!=supported.RootElement.GetProperty("sha256").GetString())throw new InvalidOperationException(UiText.T("error.unsupported.version"));
         }
         package = Path.GetFullPath(package);
         foreach (var required in new[] { "xinput1_4.dll", "ED9Loader", "Mod/ScherazardSummon/asset/common/model" })
             if (!File.Exists(Path.Combine(package,required)) && !Directory.Exists(Path.Combine(package,required)))
-                throw new InvalidDataException("测试包不完整：" + required);
+                throw new InvalidDataException(UiText.F("error.package.incomplete", required));
         var files = new List<string> { "xinput1_4.dll" };
         foreach (var folder in new[] { "ED9Loader", "Mod" })
         {
@@ -68,7 +68,7 @@ public static class GameInstaller
         var existed = new Dictionary<string,bool>();
         foreach(var relative in files) {
             SafePath(package,relative); var target=SafePath(gameRoot,relative);
-            if(Directory.Exists(target)) throw new IOException("文件目标被同名目录占用："+target);
+            if(Directory.Exists(target)) throw new IOException(UiText.F("error.same.directory", target));
             existed[relative]=File.Exists(target);
         }
         Directory.CreateDirectory(backup);
@@ -83,11 +83,11 @@ public static class GameInstaller
         var touched=new List<string>();
         try {
             foreach(var relative in files) {
-                if(runningCheck()) throw new IOException("检测到游戏启动，停止安装并还原。");
+                if(runningCheck()) throw new IOException(UiText.T("error.install.interrupted"));
                 var target=SafePath(gameRoot,relative); Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 touched.Add(relative); File.Copy(Path.Combine(package,relative),target,true);
                 using var a=File.OpenRead(Path.Combine(package,relative)); using var b=File.OpenRead(target);
-                if(!SHA256.HashData(a).SequenceEqual(SHA256.HashData(b))) throw new IOException("安装校验失败："+relative);
+                if(!SHA256.HashData(a).SequenceEqual(SHA256.HashData(b))) throw new IOException(UiText.F("error.install.verify", relative));
             }
             Record("installed");
             return backup;
@@ -99,16 +99,16 @@ public static class GameInstaller
                 else File.Delete(target);
             } catch(Exception error) { errors.Add(error); }
             Record(errors.Count==0 ? "rolled-back" : "rollback-incomplete");
-            if(errors.Count>0) throw new AggregateException("安装失败，部分文件还原失败。备份："+backup,errors.Prepend(failure));
-            throw new IOException("安装失败，已还原本次修改。备份："+backup,failure);
+            if(errors.Count>0) throw new AggregateException(UiText.F("error.install.rollback.incomplete", backup),errors.Prepend(failure));
+            throw new IOException(UiText.F("error.install.rollback", backup),failure);
         }
     }
 
     public static string RestoreLatest(string gameRoot,string backupRoot,Func<bool>? runningCheck=null)
     {
         gameRoot=ValidateGameRoot(gameRoot);runningCheck??=IsGameRunning;
-        if(runningCheck())throw new InvalidOperationException("请先退出游戏再恢复。");
-        if(!Directory.Exists(backupRoot))throw new IOException("没有可恢复的安装备份。");
+        if(runningCheck())throw new InvalidOperationException(UiText.T("error.restore.running"));
+        if(!Directory.Exists(backupRoot))throw new IOException(UiText.T("error.no.backup"));
         foreach(var file in Directory.GetFiles(backupRoot,"installation.json",SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc)) {
             var doc=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))!;
             if(doc["state"]?.GetValue<string>()!="installed" || !string.Equals(doc["gameRoot"]?.GetValue<string>(),gameRoot,StringComparison.OrdinalIgnoreCase))continue;
@@ -119,13 +119,13 @@ public static class GameInstaller
                 current[pair.Key]=File.Exists(target)?File.ReadAllBytes(target):null;
                 var expected=doc["installedHashes"]?[pair.Key]?.GetValue<string>();
                 if(expected is not null && (current[pair.Key] is null || Convert.ToHexString(SHA256.HashData(current[pair.Key]!))!=expected))
-                    throw new IOException("安装后文件已被其他程序修改，为避免覆盖，停止恢复："+pair.Key);
+                    throw new IOException(UiText.F("error.restore.changed", pair.Key));
                 originals[pair.Key]=pair.Value!.GetValue<bool>()?File.ReadAllBytes(saved):null;
             }
             var touched=new List<string>();
             try {
                 foreach(var pair in originals) {
-                    if(runningCheck())throw new IOException("游戏启动，停止恢复。");
+                    if(runningCheck())throw new IOException(UiText.T("error.restore.interrupted"));
                     var target=SafePath(gameRoot,pair.Key);touched.Add(pair.Key);
                     if(pair.Value is null)File.Delete(target);else File.WriteAllBytes(target,pair.Value);
                 }
@@ -139,6 +139,6 @@ public static class GameInstaller
                 throw;
             }
         }
-        throw new IOException("没有此游戏目录尚未撤销的安装记录。");
+        throw new IOException(UiText.T("error.restore.none.for.game"));
     }
 }

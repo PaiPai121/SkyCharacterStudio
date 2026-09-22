@@ -6,6 +6,11 @@ namespace Sky1stCharacterStudio;
 
 public sealed class ShapePreviewControl : FrameworkElement
 {
+    public ShapePreviewControl()
+    {
+        UiText.LanguageChanged += (_, _) => InvalidateVisual();
+    }
+
     public static readonly DependencyProperty StrengthProperty = DependencyProperty.Register(
         nameof(Strength), typeof(double), typeof(ShapePreviewControl),
         new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -83,11 +88,12 @@ public sealed class ShapePreviewControl : FrameworkElement
             new Rect(centerX + legGap, legTop, hipWidth / 2 - 10, legBottom - legTop), 12, 12);
 
         var caption = new FormattedText(
-            $"{ModelLabel}  ·  形体强度 {Strength:0}%",
-            CultureInfo.GetCultureInfo("zh-CN"), FlowDirection.LeftToRight,
+            UiText.F("contour.strength", ModelLabel, Strength),
+            UiText.IsEnglish ? CultureInfo.GetCultureInfo("en-US") : CultureInfo.GetCultureInfo("zh-CN"), FlowDirection.LeftToRight,
             new Typeface("Microsoft YaHei"), 13, new SolidColorBrush(Color.FromRgb(214, 229, 233)), 1.0);
         drawing.DrawText(caption, new Point(16, 12));
-        var note = new FormattedText("胸廓与相邻衣料的局部轮廓示意", CultureInfo.GetCultureInfo("zh-CN"),
+        var note = new FormattedText(UiText.T("contour.local.note"),
+            UiText.IsEnglish ? CultureInfo.GetCultureInfo("en-US") : CultureInfo.GetCultureInfo("zh-CN"),
             FlowDirection.LeftToRight, new Typeface("Microsoft YaHei"), 11,
             new SolidColorBrush(Color.FromRgb(143, 170, 179)), 1.0);
         drawing.DrawText(note, new Point(16, height - note.Height - 9));

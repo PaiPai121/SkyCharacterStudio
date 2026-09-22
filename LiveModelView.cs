@@ -61,7 +61,7 @@ public sealed class LiveModelView : Grid
     {
         SourceMeshes=JsonSerializer.Deserialize<List<LiveMesh>>(File.ReadAllText(Path.Combine(directory,fileName)))!;
         var positions=SourceMeshes.Where(m=>!m.hidden).SelectMany(m=>m.positions).ToArray();
-        if(positions.Length==0) throw new InvalidDataException("模型没有可显示的网格");
+        if(positions.Length==0) throw new InvalidDataException(UiText.T("error.no.mesh"));
         modelMinY=positions.Min(p=>p[1]);modelHeight=positions.Max(p=>p[1])-modelMinY;
         modelWidth=positions.Max(p=>p[0])-positions.Min(p=>p[0]);
         Geometry.Clear(); scene.Children.Clear();

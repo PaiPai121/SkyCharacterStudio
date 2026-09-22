@@ -13,12 +13,7 @@ public sealed class CharacterAgeInfo
     [JsonPropertyName("source")] public string Source { get; init; } = "";
     [JsonIgnore] public bool DefaultedFromBaseGame { get; init; }
     public bool IsAdult => Status == "adult" && (!Age.HasValue || Age >= 18);
-    public string DisplayText => (Status switch {
-        "adult" when IsAdult && DefaultedFromBaseGame => "原生未登记角色 · 默认成年",
-        "adult" when IsAdult => "已确认成年",
-        "minor" => "已确认未成年",
-        _ => "年龄资料不足"
-    }) + (Age.HasValue ? $" · {Age} 岁" : "");
+    public string DisplayText => UiText.AgeDisplay(this);
 }
 
 public static class CharacterAgeCatalog

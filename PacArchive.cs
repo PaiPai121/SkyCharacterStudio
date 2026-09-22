@@ -25,20 +25,20 @@ public sealed class PacArchive
 
     public static PacArchive Load(string path)
     {
-        if (!File.Exists(path)) throw new FileNotFoundException("找不到 PAC 文件", path);
+        if (!File.Exists(path)) throw new FileNotFoundException(UiText.T("error.pac.missing"), path);
         var fileInfo = new FileInfo(path);
-        if (fileInfo.Length < 16) throw new InvalidDataException("PAC 文件过小");
+        if (fileInfo.Length < 16) throw new InvalidDataException(UiText.T("error.pac.small"));
 
         using var stream = File.OpenRead(path);
         Span<byte> header = stackalloc byte[16];
         ReadExactly(stream, header);
         if (Encoding.ASCII.GetString(header[..4]) != "FPAC")
-            throw new InvalidDataException("只支持 FPAC 资源包");
+            throw new InvalidDataException(UiText.T("error.pac.format"));
 
         var count = BinaryPrimitives.ReadUInt32LittleEndian(header[4..8]);
-        if (count > 2_000_000) throw new InvalidDataException("PAC 条目数异常");
+        if (count > 2_000_000) throw new InvalidDataException(UiText.T("error.pac.entries"));
         var recordsBytes = checked((long)count * 32L);
-        if (16L + recordsBytes > fileInfo.Length) throw new InvalidDataException("PAC 条目表超出文件范围");
+        if (16L + recordsBytes > fileInfo.Length) throw new InvalidDataException(UiText.T("error.pac.range"));
 
         var records = new (ulong Hash, ulong NameOffset, ulong Size, ulong Offset)[count];
         Span<byte> record = stackalloc byte[32];
@@ -57,7 +57,7 @@ public sealed class PacArchive
         {
             if (item.NameOffset >= (ulong)fileInfo.Length || item.Size > (ulong)fileInfo.Length
                 || item.Offset > (ulong)fileInfo.Length - item.Size)
-                throw new InvalidDataException("PAC 条目偏移无效");
+                throw new InvalidDataException(UiText.T("error.pac.offset"));
             stream.Position = checked((long)item.NameOffset);
             var name = ReadUtf8Name(stream, 4096);
             entries.Add(new PacEntry
@@ -75,7 +75,7 @@ public sealed class PacArchive
     {
         var destinationPath = System.IO.Path.GetFullPath(destination);
         var parent = Directory.GetParent(destinationPath)?.FullName
-            ?? throw new InvalidOperationException("输出路径无父目录");
+            ?? throw new InvalidOperationException(UiText.T("error.archive.parent"));
         Directory.CreateDirectory(parent);
 
         using var source = File.OpenRead(Path);
@@ -86,7 +86,7 @@ public sealed class PacArchive
 
     public byte[] ReadEntry(PacEntry entry)
     {
-        if (entry.Size > int.MaxValue) throw new InvalidDataException("预览条目过大");
+        if (entry.Size > int.MaxValue) throw new InvalidDataException(UiText.T("error.pac.preview.large"));
         using var source = File.OpenRead(Path);
         source.Position = entry.Offset;
         var bytes = new byte[checked((int)entry.Size)];
@@ -100,11 +100,11 @@ public sealed class PacArchive
         for (var i = 0; i < maxLength; i++)
         {
             var value = stream.ReadByte();
-            if (value < 0) throw new InvalidDataException("PAC 文件名被截断");
+            if (value < 0) throw new InvalidDataException(UiText.T("error.pac.name.truncated"));
             if (value == 0) return Encoding.UTF8.GetString(bytes.ToArray());
             bytes.Add((byte)value);
         }
-        throw new InvalidDataException("PAC 文件名过长");
+        throw new InvalidDataException(UiText.T("error.pac.name.long"));
     }
 
     private static void CopyExactly(Stream source, Stream target, long length)
@@ -114,7 +114,7 @@ public sealed class PacArchive
         while (remaining > 0)
         {
             var read = source.Read(buffer, 0, (int)Math.Min(buffer.Length, remaining));
-            if (read <= 0) throw new EndOfStreamException("PAC 条目数据被截断");
+            if (read <= 0) throw new EndOfStreamException(UiText.T("error.pac.data.truncated"));
             target.Write(buffer, 0, read);
             remaining -= read;
         }
@@ -125,7 +125,7 @@ public sealed class PacArchive
         while (!buffer.IsEmpty)
         {
             var read = stream.Read(buffer);
-            if (read <= 0) throw new EndOfStreamException("PAC 文件被截断");
+            if (read <= 0) throw new EndOfStreamException(UiText.T("error.pac.file.truncated"));
             buffer = buffer[read..];
         }
     }

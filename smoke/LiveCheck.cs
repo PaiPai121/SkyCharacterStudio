@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using Sky1stCharacterStudio;
 class LiveCheck {
  [STAThread] static void Main() {
+  UiText.SetLanguage(UiLanguage.Chinese, persist:false);
   var app=new Application();
   SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
   var window=new MainWindow();

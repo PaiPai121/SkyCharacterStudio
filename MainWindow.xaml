@@ -60,15 +60,21 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock Text="游击士协会 · 角色模型工作台" FontSize="24" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
-                <TextBlock Text="选择游戏目录，调整模型，一键导出并安装。安装会备份旧文件，原始 PAC 保持只读。" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
+                <TextBlock x:Name="AppHeadingText" Text="游击士协会 · 角色模型工作台" FontSize="24" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
+                <TextBlock x:Name="AppSubtitleText" Text="选择游戏目录，调整模型，一键导出并安装。安装会备份旧文件，原始 PAC 保持只读。" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
             </StackPanel>
-            <Border Grid.Column="1" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="8" Padding="12,7" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal">
-                    <Ellipse Width="9" Height="9" Fill="{StaticResource CyanBrush}" Margin="0,0,7,0" />
-                    <TextBlock Text="离线模式" Foreground="{StaticResource CyanBrush}" />
-                </StackPanel>
-            </Border>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <ComboBox x:Name="LanguageBox" Width="104" Margin="0,0,8,0" SelectionChanged="LanguageBox_SelectionChanged">
+                    <ComboBoxItem Content="中文" Tag="zh" />
+                    <ComboBoxItem Content="English" Tag="en" />
+                </ComboBox>
+                <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="8" Padding="12,7">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="9" Height="9" Fill="{StaticResource CyanBrush}" Margin="0,0,7,0" />
+                        <TextBlock x:Name="OfflineText" Text="离线模式" Foreground="{StaticResource CyanBrush}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
         </Grid>
 
         <Grid Grid.Row="1">
@@ -87,8 +93,8 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Text="资源扫描" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
-                    <TextBlock Grid.Row="1" Text="游戏目录（扫描与安装目标）" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,12,0,2" />
+                    <TextBlock x:Name="ScanHeadingText" Text="资源扫描" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
+                    <TextBlock x:Name="GameFolderText" Grid.Row="1" Text="游戏目录（扫描与安装目标）" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,12,0,2" />
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -103,7 +109,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="角色模型" FontSize="14" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ModelsHeadingText" Text="角色模型" FontSize="14" FontWeight="SemiBold" />
                             <TextBlock x:Name="ModelCountText" Grid.Column="1" Text="未扫描" Foreground="{StaticResource MutedBrush}" FontSize="11" VerticalAlignment="Center" />
                         </Grid>
                         <TextBox x:Name="FilterBox" TextChanged="FilterBox_TextChanged" ToolTip="输入 chr 编号或角色名进行筛选" Margin="0,8,0,0" />
@@ -111,7 +117,7 @@
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="2,3">
-                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding LocalizedName}" FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding ModelId}" Foreground="#607B85" FontSize="11" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -119,7 +125,7 @@
                         </ComboBox>
                         <Border Background="{StaticResource PanelDeepBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,12,0,0">
                             <StackPanel>
-                                <TextBlock Text="当前模型" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                                <TextBlock x:Name="CurrentModelLabel" Text="当前模型" Foreground="{StaticResource MutedBrush}" FontSize="11" />
                                 <TextBlock x:Name="SelectedNameText" Text="—" FontSize="16" Foreground="{StaticResource GoldBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
                                 <TextBlock x:Name="SelectedIdText" Text="等待扫描" Foreground="#DDE9EA" Margin="0,3,0,0" />
                                 <TextBlock x:Name="SelectedMetaText" Text="" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap" />
@@ -142,7 +148,7 @@
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="实时模型 · 拖动旋转，滚轮缩放" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
+                        <TextBlock x:Name="LiveHeadingText" Text="实时模型 · 拖动旋转，滚轮缩放" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
                         <Border Grid.Row="1" Background="#09131E" BorderBrush="#325766" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,10,0,10">
                             <Grid>
                                 <Image x:Name="PortraitImage" Stretch="Uniform" />
@@ -153,8 +159,8 @@
                             <TextBlock x:Name="PortraitStatusText" Text="头像/贴图预览会从 image.pac 读取；雪拉扎德可切换原版与调整后 3D 渲染" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
                             <StackPanel Orientation="Horizontal">
                                 <Button x:Name="PreviewToggleButton" Content="切换原版" Click="PreviewToggleButton_Click" Margin="0,8,0,0" />
-                                <Button Content="全身" Click="FullBody_Click" Margin="8,8,0,0" />
-                                <Button Content="上半身" Click="UpperBody_Click" Margin="8,8,0,0" />
+                                <Button x:Name="FullBodyButton" Content="全身" Click="FullBody_Click" Margin="8,8,0,0" />
+                                <Button x:Name="UpperBodyButton" Content="上半身" Click="UpperBody_Click" Margin="8,8,0,0" />
                             </StackPanel>
                         </StackPanel>
                     </Grid>
@@ -167,11 +173,11 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Grid>
-                            <TextBlock Text="形体轮廓预览" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
+                            <TextBlock x:Name="ContourHeadingText" Text="形体轮廓预览" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
                             <TextBlock x:Name="PreviewStrengthText" Text="0%" HorizontalAlignment="Right" Foreground="{StaticResource CyanBrush}" FontSize="16" FontWeight="SemiBold" />
                         </Grid>
                         <local:ShapePreviewControl x:Name="ContourPreview" Grid.Row="1" Strength="0" ModelLabel="轮廓预览" Margin="0,10,0,10" />
-                        <TextBlock Grid.Row="2" Text="滑条只改变导出模型的参数强度；最终网格由已验证的模型后端生成。" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+                        <TextBlock x:Name="ContourNoteText" Grid.Row="2" Text="滑条只改变导出模型的参数强度；最终网格由已验证的模型后端生成。" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
                     </Grid>
                 </Border>
             </Grid>
@@ -184,8 +190,12 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid>
-                    <StackPanel Orientation="Horizontal"><TextBlock Text="调整方式" VerticalAlignment="Center" Margin="0,0,10,0"/><ComboBox x:Name="ShapeModeBox" Width="180" SelectionChanged="ShapeMode_Changed"><ComboBoxItem Content="整体宽度" Tag="width"/><ComboBoxItem x:Name="ChestModeItem" ToolTipService.ShowOnDisabled="True" Content="胸部／胸廓（自动定位）" Tag="chest"/></ComboBox></StackPanel>
-                    <TextBlock Text="0 = 原版；整体宽度：−500 为 75%，1000 为 150%；胸部在 ±100% 外采用平滑响应并自动保护轮廓" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal"><TextBlock x:Name="AdjustmentLabelText" Text="调整方式" VerticalAlignment="Center" Margin="0,0,10,0"/><ComboBox x:Name="ShapeModeBox" Width="180" SelectionChanged="ShapeMode_Changed"><ComboBoxItem x:Name="WidthModeItem" Content="整体宽度" Tag="width"/><ComboBoxItem x:Name="ChestModeItem" ToolTipService.ShowOnDisabled="True" Content="胸部／胸廓（自动定位）" Tag="chest"/></ComboBox></StackPanel>
+                    <TextBlock Grid.Column="1" x:Name="StrengthHelpText" Text="0 = 原版；整体宽度：−500 为 75%，1000 为 150%；胸部在 ±100% 外采用平滑响应并自动保护轮廓" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="12,0,0,0" />
                 </Grid>
                 <Grid Grid.Row="1" Margin="0,7,0,0">
                     <Grid.ColumnDefinitions>

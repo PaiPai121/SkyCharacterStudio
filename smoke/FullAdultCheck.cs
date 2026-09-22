@@ -8,6 +8,7 @@ class FullAdultCheck {
  static readonly BindingFlags Flags=BindingFlags.Instance|BindingFlags.NonPublic;
  static void Pump(Func<bool> done) {var deadline=DateTime.UtcNow.AddSeconds(90);while(!done()){if(DateTime.UtcNow>deadline)throw new Exception("Preview timeout");var f=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,new Action(()=>f.Continue=false));Dispatcher.PushFrame(f);Thread.Sleep(10);}}
  [STAThread] static void Main() {
+  UiText.SetLanguage(UiLanguage.Chinese, persist:false);
   var app=new Application();SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
   var w=new MainWindow();var scan=(Task)typeof(MainWindow).GetMethod("ScanAsync",Flags)!.Invoke(w,null)!;Pump(()=>scan.IsCompleted);scan.GetAwaiter().GetResult();
   bool Ready()=>(bool)typeof(MainWindow).GetField("_modelReady",Flags)!.GetValue(w)!;
