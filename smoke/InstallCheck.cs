@@ -1,4 +1,6 @@
 using System.IO;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Sky1stCharacterStudio;
 var root=Path.Combine(@"D:\work_console\Sky1stCharacterStudio\cache","安装 测试-"+Guid.NewGuid().ToString("N"));
 var game=Path.Combine(root,"游戏目录");
@@ -6,7 +8,13 @@ Directory.CreateDirectory(Path.Combine(game,"pac/steam"));
 File.WriteAllText(Path.Combine(game,"sora_1st.exe"),"fixture");
 File.WriteAllText(Path.Combine(game,"pac/steam/asset_common_model.pac"),"do not touch");
 File.WriteAllText(Path.Combine(game,"xinput1_4.dll"),"old proxy");
+var compatibilityDirectory=Path.Combine(AppContext.BaseDirectory,"assets");
+var compatibilityPath=Path.Combine(compatibilityDirectory,"supported-game.json");
+var previousCompatibility=File.Exists(compatibilityPath) ? File.ReadAllBytes(compatibilityPath) : null;
+Directory.CreateDirectory(compatibilityDirectory);
+File.WriteAllText(compatibilityPath,JsonSerializer.Serialize(new { sha256=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(game,"sora_1st.exe")))) }));
 var package=@"D:\work_console\Sky1stCharacterStudio\exports\chr5002_shape_097\Scherazard_Runtime";
+try {
 var backup=GameInstaller.Install(package,game,Path.Combine(root,"backup"),()=>false);
 if(File.ReadAllText(Path.Combine(backup,"xinput1_4.dll"))!="old proxy") throw new Exception("Backup mismatch");
 foreach(var folder in new[]{"ED9Loader","Mod"}) foreach(var file in Directory.GetFiles(Path.Combine(package,folder),"*",SearchOption.AllDirectories)) {
@@ -24,3 +32,6 @@ catch(InvalidOperationException) { }
 if(File.ReadAllText(Path.Combine(game,"pac/steam/asset_common_model.pac"))!="do not touch") throw new Exception("PAC changed");
 Console.WriteLine("PASS: actual package installed in custom Unicode path; backup verified; byte comparison; running-game rejection; interrupted installation rollback; invalid directory rejection; PAC untouched");
 Console.WriteLine(root);
+} finally {
+ if(previousCompatibility is null) File.Delete(compatibilityPath); else File.WriteAllBytes(compatibilityPath,previousCompatibility);
+}

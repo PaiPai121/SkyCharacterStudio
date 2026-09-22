@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Sky1stCharacterStudio;
 class LiveCheck {
+ static void Pump(Func<bool> done) {var deadline=DateTime.UtcNow.AddSeconds(90);while(!done()){if(DateTime.UtcNow>deadline)throw new Exception("Preview timeout");var f=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,new Action(()=>f.Continue=false));Dispatcher.PushFrame(f);Thread.Sleep(10);}}
  [STAThread] static void Main() {
   UiText.SetLanguage(UiLanguage.Chinese, persist:false);
   var app=new Application();
@@ -15,6 +16,7 @@ class LiveCheck {
   var scan=(Task)typeof(MainWindow).GetMethod("ScanAsync",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(window,null)!;
   while(!scan.IsCompleted) { var frame=new DispatcherFrame(); Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,new Action(()=>frame.Continue=false)); Dispatcher.PushFrame(frame); }
   scan.GetAwaiter().GetResult();
+  Pump(()=> (bool)typeof(MainWindow).GetField("_modelReady",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(window)!);
   var view=(LiveModelView)window.FindName("LiveView");
   var slider=(Slider)window.FindName("ShapeSlider");
   if(view.Visibility!=Visibility.Visible||view.Geometry.Count!=10) throw new Exception("Scan did not load real model");
