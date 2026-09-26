@@ -158,6 +158,9 @@ $buildDirectory = Join-Path $runRoot 'app'
 $nativeDirectory = Join-Path $runRoot 'native'
 $portableDirectory = Join-Path $runRoot 'portable'
 $smokeDirectory = Join-Path $runRoot 'smoke'
+$candidateZip = Join-Path $runRoot "Sky1stCharacterStudio-$version-$RuntimeIdentifier.zip"
+$workspaceParent = [IO.Path]::GetFullPath((Split-Path -Parent $root))
+$cleanDirectory = [IO.Path]::GetFullPath((Join-Path $workspaceParent "Sky1stReleaseQA-$runId"))
 if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {
     $ArtifactDirectory = Join-Path $root 'release-artifacts'
 }
@@ -165,6 +168,8 @@ $zipPath = Join-Path $ArtifactDirectory "Sky1stCharacterStudio-$version-$Runtime
 $completed = $false
 
 try {
+    if (Test-Path -LiteralPath $zipPath) { throw "此版本发布包已经存在，请先更新版本号：$zipPath" }
+    if (Test-Path -LiteralPath $cleanDirectory) { throw "独立解压目录已经存在：$cleanDirectory" }
     New-Item -ItemType Directory -Force -Path $buildDirectory, $nativeDirectory, $ArtifactDirectory | Out-Null
 
     Invoke-Checked $python @(
@@ -279,11 +284,11 @@ try {
     Invoke-Checked $python @(
         '-X', 'utf8', (Join-Path $root 'tools\create_release_zip.py'),
         '--stage', $portableDirectory,
-        '--zip', $zipPath
+        '--zip', $candidateZip
     ) '生成并逐文件校验 ZIP 发布包'
-    Require-Path $zipPath 'ZIP 发布包'
+    Require-Path $candidateZip 'ZIP 发布包'
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $archive = [IO.Compression.ZipFile]::OpenRead($zipPath)
+    $archive = [IO.Compression.ZipFile]::OpenRead($candidateZip)
     try {
         $badEntries = @($archive.Entries | Where-Object {
             $_.FullName -match '(?i)\.(mdl|dat|dds|pac|blend)$'
@@ -294,6 +299,50 @@ try {
     if ($badEntries.Count -gt 0) {
         throw "ZIP 带入游戏资源：$($badEntries[0].FullName)"
     }
+
+    Write-Host "`n==> 从最终 ZIP 独立解压并验证启动程序"
+    Expand-Archive -LiteralPath $candidateZip -DestinationPath $cleanDirectory
+    $null = Test-PortableDirectory $cleanDirectory $version
+    $launcherPath = Join-Path $cleanDirectory 'Sky1stCharacterStudio.exe'
+    $launcher = Start-Process -FilePath $launcherPath -WorkingDirectory $cleanDirectory -WindowStyle Hidden -PassThru
+    try {
+        Start-Sleep -Seconds 5
+        $launcher.Refresh()
+        if ($launcher.HasExited) { throw "最终包启动程序过早退出，退出码 $($launcher.ExitCode)" }
+    } finally {
+        $launcher.Refresh()
+        if (-not $launcher.HasExited) { Stop-Process -Id $launcher.Id -Force }
+    }
+
+    if (-not $SkipSmoke -and -not [string]::IsNullOrWhiteSpace($gameRoot) -and
+        (Test-Path -LiteralPath (Join-Path $gameRoot 'sora_1st.exe'))) {
+        Write-Host "`n==> 从独立解压目录执行完整便携流程"
+        $cleanSmokeDirectory = Join-Path $cleanDirectory '_smoke'
+        $cleanSmokeBuild = @(
+            'build', (Join-Path $root 'smoke\PortableReleaseCheck.csproj'),
+            '--configuration', $Configuration, '--no-restore',
+            ('-p:StudioReference=' + (Join-Path $cleanDirectory 'Sky1stCharacterStudio.dll')),
+            ('-p:OutputPath=' + $cleanSmokeDirectory)
+        )
+        Invoke-Checked $dotnet $cleanSmokeBuild '构建最终包离线检查'
+        foreach ($directoryName in @('assets', 'runtime', 'tools')) {
+            Copy-Item -LiteralPath (Join-Path $cleanDirectory $directoryName) -Destination (Join-Path $cleanSmokeDirectory $directoryName) -Recurse -Force
+        }
+        $previousGameEnv = [Environment]::GetEnvironmentVariable('SKY1ST_GAME_ROOT', 'Process')
+        $previousSmokeEnv = [Environment]::GetEnvironmentVariable('SKY1ST_SMOKE_ROOT', 'Process')
+        try {
+            $env:SKY1ST_GAME_ROOT = $gameRoot
+            $env:SKY1ST_SMOKE_ROOT = $cleanSmokeDirectory
+            Invoke-Checked (Join-Path $cleanSmokeDirectory 'PortableReleaseCheck.exe') @() '验证最终 ZIP 的模型生成、报错、安装和撤销'
+        } finally {
+            if ($null -eq $previousGameEnv) { Remove-Item Env:SKY1ST_GAME_ROOT -ErrorAction SilentlyContinue }
+            else { $env:SKY1ST_GAME_ROOT = $previousGameEnv }
+            if ($null -eq $previousSmokeEnv) { Remove-Item Env:SKY1ST_SMOKE_ROOT -ErrorAction SilentlyContinue }
+            else { $env:SKY1ST_SMOKE_ROOT = $previousSmokeEnv }
+        }
+    }
+
+    Move-Item -LiteralPath $candidateZip -Destination $zipPath
     $hash = Get-Sha256 $zipPath
     Set-Content -LiteralPath "$zipPath.sha256" -Value "$hash  $(Split-Path -Leaf $zipPath)" -Encoding ASCII
     $completed = $true
@@ -306,7 +355,15 @@ try {
         Write-Host "临时目录（已保留）：$runRoot"
     }
 } finally {
-    if ($completed -and -not $KeepStaging -and (Test-Path -LiteralPath $runRoot)) {
-        Remove-Item -LiteralPath $runRoot -Recurse -Force
+    if ($completed -and -not $KeepStaging) {
+        $verifiedStageRoot = [IO.Path]::GetFullPath($stageRoot).TrimEnd('\') + '\'
+        $verifiedRunRoot = [IO.Path]::GetFullPath($runRoot)
+        $verifiedWorkspace = $workspaceParent.TrimEnd('\') + '\'
+        if (-not $verifiedRunRoot.StartsWith($verifiedStageRoot, [StringComparison]::OrdinalIgnoreCase) -or
+            -not $cleanDirectory.StartsWith($verifiedWorkspace, [StringComparison]::OrdinalIgnoreCase)) {
+            throw '打包临时目录超出预期工作区，已停止清理。'
+        }
+        if (Test-Path -LiteralPath $runRoot) { Remove-Item -LiteralPath $runRoot -Recurse -Force }
+        if (Test-Path -LiteralPath $cleanDirectory) { Remove-Item -LiteralPath $cleanDirectory -Recurse -Force }
     }
 }

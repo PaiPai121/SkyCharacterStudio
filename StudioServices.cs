@@ -307,6 +307,7 @@ public static class ExportService
             CopyDirectory(source, destination);
             // Do not reset another character's installed model while applying this one.
             var packageModels=Path.Combine(destination,"Mod","ScherazardSummon","asset","common","model");
+            Directory.CreateDirectory(packageModels);
             if(!record.ModelId.Equals("chr5002",StringComparison.OrdinalIgnoreCase))
                 File.Delete(Path.Combine(packageModels,"chr5002.mdl"));
 

@@ -1,4 +1,4 @@
-# Sky 1st Character Studio — 0.2.0 beta
+# Sky 1st Character Studio — 0.2.1 beta
 
 Windows x64 character shape editor for the Clouded Leopard Entertainment Steam edition of Trails in the Sky the 1st, executable versions 1.0.5.0 and 1.0.7.0 (specific verified file hashes). Other editions/builds are not verified; installation checks the executable fingerprint and stops on a mismatch. Version 1.0.7.0 has completed offline model and installer checks; gameplay was not exercised on that build.
 

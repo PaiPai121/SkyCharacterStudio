@@ -6,7 +6,7 @@ Game domain: trailsintheskyfirstchapter
 
 Name: Sky 1st Character Studio - CLE Edition (Beta)
 
-Version: 0.2.0-beta
+Version: 0.2.1-beta
 
 Summary: Offline character shape editor with real model previews, local installation backups, optional selected-character test summons and Chinese/English UI. Verified CLE Steam 1.0.5.0/1.0.7.0 executable hashes only.
 

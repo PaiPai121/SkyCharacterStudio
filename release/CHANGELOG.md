@@ -1,4 +1,9 @@
-# 0.2.0 beta
+# 0.2.1 beta
+
+- Fixed an install failure after clean ZIP extraction: create the generated model directory before replacing or removing an existing model.
+- The one-click release build now tests the final compressed artifact from a separate extraction directory before promoting it to a player ZIP.
+
+# 0.2.0 beta (source-only candidate; not a player release)
 
 - Added a Chinese/English UI switch in the header; Chinese remains the default and the choice is remembered per user.
 - Localized scan/install/restore status, model metadata, age and bone-detection details, contour preview labels, comparison images and generated package notes.
