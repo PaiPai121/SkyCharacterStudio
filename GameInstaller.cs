@@ -23,11 +23,16 @@ public static class GameInstaller
         if (!File.Exists(compatibility))
             throw new FileNotFoundException(UiText.T("error.compatibility.missing"), compatibility);
         using var supported = JsonDocument.Parse(File.ReadAllText(compatibility));
-        var expected = supported.RootElement.GetProperty("sha256").GetString();
+        var accepted = supported.RootElement.GetProperty("builds").EnumerateArray()
+            .Select(build => build.GetProperty("sha256").GetString())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         using var executable = File.OpenRead(Path.Combine(gameRoot, "sora_1st.exe"));
         var actual = Convert.ToHexString(SHA256.HashData(executable));
-        if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException(UiText.T("error.unsupported.version"));
+        if (!accepted.Contains(actual))
+        {
+            var version = FileVersionInfo.GetVersionInfo(Path.Combine(gameRoot, "sora_1st.exe")).FileVersion ?? "?";
+            throw new InvalidOperationException(UiText.F("error.unsupported.version", version));
+        }
     }
 
     public static bool IsGameRunning()

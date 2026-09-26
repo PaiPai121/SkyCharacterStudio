@@ -1,6 +1,6 @@
 # Sky 1st Character Studio — 0.2.0 beta
 
-Windows x64 character shape editor for the Clouded Leopard Entertainment Steam edition of Trails in the Sky the 1st, executable version 1.0.5.0. Other editions/builds are not verified; installation checks the executable fingerprint and stops on a mismatch.
+Windows x64 character shape editor for the Clouded Leopard Entertainment Steam edition of Trails in the Sky the 1st, executable versions 1.0.5.0 and 1.0.7.0 (specific verified file hashes). Other editions/builds are not verified; installation checks the executable fingerprint and stops on a mismatch. Version 1.0.7.0 has completed offline model and installer checks; gameplay was not exercised on that build.
 
 ## 使用方法
 
@@ -16,7 +16,7 @@ Windows x64 character shape editor for the Clouded Leopard Entertainment Steam e
 
 ## English quick start
 
-Extract the entire archive into a writable folder and run Sky1stCharacterStudio.exe. The UI opens in Chinese by default; use the language selector in the upper-right corner to switch to English. Select your game folder, scan, select a character and adjustment mode, and move the slider. Close the game, then click **Save & apply to game**; that button generates, saves and installs the model. Optional F8 test summons are disabled by default. Enable the checkbox before applying if needed; F8 creates the installed character in a free-roaming field scene, and F9 followed by F8 switches original/edited appearances. If the optional summon reports a missing script_sc.pac, check that the selected game folder is complete or disable F8 and retry. Only the verified CLE Steam 1.0.5.0 executable can be installed to. The restore button undoes the latest installation; retain install-backups.
+Extract the entire archive into a writable folder and run Sky1stCharacterStudio.exe. The UI opens in Chinese by default; use the language selector in the upper-right corner to switch to English. Select your game folder, scan, select a character and adjustment mode, and move the slider. Close the game, then click **Save & apply to game**; that button generates, saves and installs the model. Optional F8 test summons are disabled by default. Enable the checkbox before applying if needed; F8 creates the installed character in a free-roaming field scene, and F9 followed by F8 switches original/edited appearances. If the optional summon reports a missing script_sc.pac, check that the selected game folder is complete or disable F8 and retry. Only the verified CLE Steam 1.0.5.0/1.0.7.0 executable files can be installed to. The restore button undoes the latest installation; retain install-backups.
 
 ## Scope and known limitations
 

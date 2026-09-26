@@ -8,6 +8,7 @@
 - Check game compatibility and optional summon script files before model generation; missing files now have actionable paths.
 - Renamed the install button “Save & apply to game” and clarified the English quick start.
 - Corrected the player package age catalog to match the reviewed source; unlisted ages no longer default to adult chest eligibility.
+- Added the locally inspected CLE Steam 1.0.7.0 executable hash after offline model, script and installer checks. In-game validation for 1.0.7.0 remains open.
 
 # 0.1.3 beta
 

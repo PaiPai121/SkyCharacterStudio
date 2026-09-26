@@ -12,7 +12,7 @@ var compatibilityDirectory=Path.Combine(AppContext.BaseDirectory,"assets");
 var compatibilityPath=Path.Combine(compatibilityDirectory,"supported-game.json");
 var previousCompatibility=File.Exists(compatibilityPath) ? File.ReadAllBytes(compatibilityPath) : null;
 Directory.CreateDirectory(compatibilityDirectory);
-File.WriteAllText(compatibilityPath,JsonSerializer.Serialize(new { sha256=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(game,"sora_1st.exe")))) }));
+File.WriteAllText(compatibilityPath,JsonSerializer.Serialize(new { builds=new[] { new { version="fixture",sha256=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(game,"sora_1st.exe")))) } } }));
 var package=@"D:\work_console\Sky1stCharacterStudio\exports\chr5002_shape_097\Scherazard_Runtime";
 try {
 var backup=GameInstaller.Install(package,game,Path.Combine(root,"backup"),()=>false);

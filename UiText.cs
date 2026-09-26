@@ -117,7 +117,7 @@ public static class UiText
             ["error.generation"] = ("模型生成失败，未安装。", "Model generation failed; nothing was installed."),
             ["error.restore.running"] = ("请先退出游戏再恢复。", "Exit the game before restoring."),
             ["error.no.backup"] = ("没有可恢复的安装备份。", "There is no installation backup to restore."),
-            ["error.unsupported.version"] = ("当前游戏程序不在已验证版本中。此测试版仅支持云豹 Steam 1.0.5.0，未安装任何文件。", "This game executable is not a verified version. This beta supports only the CLE Steam 1.0.5.0 build; no files were installed."),
+            ["error.unsupported.version"] = ("当前游戏程序版本 {0} 不在已验证版本中。此测试版仅支持云豹 Steam 1.0.5.0／1.0.7.0 的指定文件，未安装任何内容。", "Game executable version {0} is not verified. This beta supports only the specified CLE Steam 1.0.5.0/1.0.7.0 files; nothing was installed."),
             ["error.compatibility.missing"] = ("缺少游戏兼容性清单 supported-game.json，安装已停止。请重新解压完整工具包。", "The game compatibility manifest supported-game.json is missing. Installation stopped; extract the full tool archive again."),
             ["export.helper.width"] = ("自动模型调整：整体宽度；按当前模型解析骨骼和顶点偏移。", "Automatic model adjustment: overall width; bone and vertex offsets are resolved from the selected model."),
             ["export.helper.chest"] = ("自动模型调整：胸部／胸廓；按当前模型解析骨骼和顶点偏移。", "Automatic model adjustment: chest / torso; bone and vertex offsets are resolved from the selected model."),
