@@ -1,3 +1,9 @@
+# 0.2.2 beta
+
+- Made F8 test summon optional throughout model generation: a missing script or summon builder failure now disables the summon and installs the generated model normally on supported game builds.
+- Unsupported executables and a running game can still produce a local model file; installation remains blocked, and the UI displays the output path and reason.
+- Added an isolated missing-script fixture and end-to-end checks for fallback installation and offline-only export in the portable release smoke test.
+
 # 0.2.1 beta
 
 - Fixed an install failure after clean ZIP extraction: create the generated model directory before replacing or removing an existing model.

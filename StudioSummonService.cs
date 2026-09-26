@@ -6,8 +6,57 @@ using System.Text.RegularExpressions;
 
 namespace Sky1stCharacterStudio;
 
+public sealed record SummonSetupResult(bool Enabled, string? DisabledReason);
+
 public static class StudioSummonService
 {
+    public static async Task<SummonSetupResult> ConfigureOptionalAsync(
+        string package, string game, string modelId, string displayName, bool requested)
+    {
+        ClearGeneratedFiles(package);
+        if (!requested)
+        {
+            Disable(package);
+            return new SummonSetupResult(false, null);
+        }
+
+        try
+        {
+            await ConfigureAsync(package, game, modelId, displayName);
+            return new SummonSetupResult(true, null);
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException or System.ComponentModel.Win32Exception)
+        {
+            Disable(package);
+            return new SummonSetupResult(false, error.Message);
+        }
+    }
+
+    private static void Disable(string package)
+    {
+        ClearGeneratedFiles(package);
+        var mod = Path.Combine(package, "Mod", "ScherazardSummon");
+        var ini = Path.Combine(package, "ED9Loader", "config", "EventStarter.ini");
+        Directory.CreateDirectory(mod);
+        Directory.CreateDirectory(Path.GetDirectoryName(ini)!);
+        File.WriteAllText(ini, "[Settings]\r\nenabled=0\r\n", Encoding.ASCII);
+        File.WriteAllText(Path.Combine(mod, "add_dat_ini.json"), "{\"inject\":[]}");
+    }
+
+    private static void ClearGeneratedFiles(string package)
+    {
+        var mod = Path.Combine(package, "Mod", "ScherazardSummon");
+        foreach (var name in new[] { "ScherazardSummon.dat", "ScherazardSummon.dat.new", "character-studio-selection.json" })
+            File.Delete(Path.Combine(mod, name));
+        File.Delete(Path.Combine(mod, "asset", "common", "model", "chr_studio_original.mdl"));
+        var original = Path.Combine(package, "studio-original");
+        if (Directory.Exists(original))
+        {
+            foreach (var file in Directory.GetFiles(original)) File.Delete(file);
+            if (Directory.GetFileSystemEntries(original).Length == 0) Directory.Delete(original);
+        }
+    }
+
     public static PacArchive ValidateScriptSource(string game)
     {
         var path = Path.Combine(game, "pac", "steam", "script_sc.pac");

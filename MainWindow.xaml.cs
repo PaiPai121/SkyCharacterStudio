@@ -304,10 +304,12 @@ public partial class MainWindow : Window
     {
         try {
             var target = GameInstaller.ValidateGameRoot(GamePathBox.Text);
-            if (GameInstaller.IsGameRunning()) throw new InvalidOperationException(UiText.T("error.game.running"));
-            GameInstaller.ValidateSupportedGame(target);
+            string? installBlocker = null;
+            try { GameInstaller.ValidateSupportedGame(target); }
+            catch (Exception error) when (error is InvalidOperationException or FileNotFoundException)
+            { installBlocker = error.Message; }
+            if (GameInstaller.IsGameRunning()) installBlocker = UiText.T("error.game.running");
             var testSummon=SummonTestingBox.IsChecked==true;
-            if (testSummon) StudioSummonService.ValidateScriptSource(target);
             var expected = Path.Combine(target,"pac","steam","asset_common_model.pac");
             if (_modelArchive is null || !Path.GetFullPath(_modelArchive.Path).Equals(expected,StringComparison.OrdinalIgnoreCase))
                 await ScanAsync();
@@ -316,12 +318,21 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException(UiText.T("error.not.ready"));
             SetActionState(false);
             var strength=(int)Math.Round(ShapeSlider.Value);
-            SetStatusKey("status.installing", false, strength, target);
-            var result=await ExportService.ExportAsync(_selectedCharacter,_modelArchive,_projectRoot,strength,true,CancellationToken.None,CurrentMode,testSummon);
-            if(!result.ShapeEditApplied || result.RuntimePackagePath is null) throw new InvalidOperationException(UiText.T("error.generation"));
+            if (installBlocker is null) SetStatusKey("status.installing", false, strength, target);
+            else SetStatusKey("status.exporting.only", false, strength, installBlocker);
+            var result=await ExportService.ExportAsync(_selectedCharacter,_modelArchive,_projectRoot,strength,
+                installBlocker is null,CancellationToken.None,CurrentMode,testSummon && installBlocker is null);
+            if(!result.ShapeEditApplied || !File.Exists(result.ModelPath)) throw new InvalidOperationException(UiText.T("error.generation"));
+            if (installBlocker is not null) {
+                SetStatusKey("status.exported.only", false, result.ModelPath, installBlocker);
+                return;
+            }
+            if (result.RuntimePackagePath is null) throw new InvalidOperationException(UiText.T("error.generation"));
             var backup=await Task.Run(()=>GameInstaller.Install(result.RuntimePackagePath,target,Path.Combine(_projectRoot,"install-backups")));
-            SetStatusKey(testSummon ? "status.installed.summon" : "status.installed.normal", false,
-                strength, target, backup);
+            if (result.SummonEnabled) SetStatusKey("status.installed.summon", false, strength, target, backup);
+            else if (result.SummonWarning is not null)
+                SetStatusKey("status.installed.summon.skipped", false, strength, target, backup, result.SummonWarning);
+            else SetStatusKey("status.installed.normal", false, strength, target, backup);
         } catch(Exception error) { SetStatus(error.Message,true); }
         finally { SetActionState(true); }
     }

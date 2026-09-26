@@ -280,8 +280,9 @@ public static class ExportService
             JsonSerializer.Serialize(preset, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8, cancellationToken);
 
         string? runtimePath = null;
+        SummonSetupResult? summonSetup = null;
         if (buildRuntime)
-            runtimePath = await BuildRuntimePackageAsync(record, modelPath, exportRoot, projectRoot, game, strength, cancellationToken,enableSummon);
+            (runtimePath, summonSetup) = await BuildRuntimePackageAsync(record, modelPath, exportRoot, projectRoot, game, strength, cancellationToken,enableSummon);
 
         var message = record.IsSupportedShapeEdit
             ? (shapeApplied ? UiText.F("export.message", record.LocalizedName, strength) : UiText.T("export.copy.message"))
@@ -293,15 +294,18 @@ public static class ExportService
             PresetPath = presetPath,
             RuntimePackagePath = runtimePath,
             ShapeEditApplied = shapeApplied,
+            SummonEnabled = summonSetup?.Enabled ?? false,
+            SummonWarning = summonSetup?.DisabledReason,
             Message = message
         };
     }
 
-    private static async Task<string> BuildRuntimePackageAsync(CharacterRecord record, string modelPath, string exportRoot,
+    private static async Task<(string Path, SummonSetupResult Summon)> BuildRuntimePackageAsync(CharacterRecord record, string modelPath, string exportRoot,
         string projectRoot, string game, int strength, CancellationToken cancellationToken, bool enableSummon)
     {
         var destination = System.IO.Path.Combine(exportRoot, "Scherazard_Runtime");
         var source = FindRuntimeRoot(projectRoot);
+        SummonSetupResult summonSetup;
         if (source is not null)
         {
             CopyDirectory(source, destination);
@@ -314,18 +318,13 @@ public static class ExportService
             var runtimeModel = System.IO.Path.Combine(destination, "Mod", "ScherazardSummon", "asset", "common", "model", record.ModelFileName);
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(runtimeModel)!);
             File.Copy(modelPath, runtimeModel, true);
-            if(enableSummon)await StudioSummonService.ConfigureAsync(destination,game,record.ModelId,record.LocalizedName);
-            else {
-                var ini=Path.Combine(destination,"ED9Loader","config","EventStarter.ini");
-                File.WriteAllText(ini,"[Settings]\r\nenabled=0\r\n");
-                File.WriteAllText(Path.Combine(destination,"Mod","ScherazardSummon","add_dat_ini.json"),"{\"inject\":[]}");
-            }
+            summonSetup = await StudioSummonService.ConfigureOptionalAsync(destination,game,record.ModelId,record.LocalizedName,enableSummon);
             await File.WriteAllTextAsync(System.IO.Path.Combine(destination, "CharacterStudioOverride.txt"),
                 UiText.F("runtime.override", record.LocalizedName, record.ModelId, strength),
                 Encoding.UTF8, cancellationToken);
         }
         else throw new DirectoryNotFoundException(UiText.T("error.no.runtime"));
-        return destination;
+        return (destination, summonSetup);
     }
 
     private static string? FindMeshRoot(string projectRoot)

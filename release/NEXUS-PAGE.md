@@ -6,7 +6,7 @@ Game domain: trailsintheskyfirstchapter
 
 Name: Sky 1st Character Studio - CLE Edition (Beta)
 
-Version: 0.2.1-beta
+Version: 0.2.2-beta
 
 Summary: Offline character shape editor with real model previews, local installation backups, optional selected-character test summons and Chinese/English UI. Verified CLE Steam 1.0.5.0/1.0.7.0 executable hashes only.
 
@@ -16,7 +16,7 @@ Select a character from your own installed game, preview shape adjustments and c
 
 Windows x64 .NET and Python runtimes are included. No original game assets are distributed. The beta accepts the verified Clouded Leopard Entertainment Steam executable hashes for 1.0.5.0 and 1.0.7.0; installation is refused for other executable fingerprints. Version 1.0.7.0 passed offline structural and installer checks, but not an in-game test. GungHo/global-edition compatibility is not claimed.
 
-The interface opens in Chinese and can be switched to English from the upper-right selector. See README-PLAYERS.md for Chinese instructions and an English quick start. The optional F8 summon requires script_sc.pac from the player's game; a missing file is reported with its full path. Keep installation backups if you want to undo changes.
+The interface opens in Chinese and can be switched to English from the upper-right selector. See README-PLAYERS.md for Chinese instructions and an English quick start. The optional F8 summon requires script_sc.pac from the player's game; if summon setup fails, the editor disables F8, reports the reason, and still installs the edited model normally. On an unsupported executable, it saves the model locally and skips installation. Keep installation backups if you want to undo changes.
 
 Optional F8 summons are off by default. Enable the test option before applying, enter a free-roaming field scene and press F8. Press F9 then F8 to compare the original and edited model. This creates a temporary test actor, not a party member.
 

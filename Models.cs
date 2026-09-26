@@ -70,5 +70,7 @@ public sealed class ExportResult
     public string PresetPath { get; init; } = "";
     public string? RuntimePackagePath { get; init; }
     public bool ShapeEditApplied { get; init; }
+    public bool SummonEnabled { get; init; }
+    public string? SummonWarning { get; init; }
     public string Message { get; init; } = "";
 }
