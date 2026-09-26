@@ -16,6 +16,20 @@ public static class GameInstaller
         return root;
     }
 
+    public static void ValidateSupportedGame(string gameRoot)
+    {
+        gameRoot = ValidateGameRoot(gameRoot);
+        var compatibility = Path.Combine(AppContext.BaseDirectory, "assets", "supported-game.json");
+        if (!File.Exists(compatibility))
+            throw new FileNotFoundException(UiText.T("error.compatibility.missing"), compatibility);
+        using var supported = JsonDocument.Parse(File.ReadAllText(compatibility));
+        var expected = supported.RootElement.GetProperty("sha256").GetString();
+        using var executable = File.OpenRead(Path.Combine(gameRoot, "sora_1st.exe"));
+        var actual = Convert.ToHexString(SHA256.HashData(executable));
+        if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(UiText.T("error.unsupported.version"));
+    }
+
     public static bool IsGameRunning()
     {
         var processes = Process.GetProcessesByName("sora_1st");
@@ -42,12 +56,7 @@ public static class GameInstaller
         gameRoot = ValidateGameRoot(gameRoot);
         runningCheck ??= IsGameRunning;
         if (runningCheck()) throw new InvalidOperationException(UiText.T("error.game.running"));
-        var compatibility=PreviewService.FindFileUpwards("assets","supported-game.json");
-        if(compatibility is not null) {
-            using var supported=JsonDocument.Parse(File.ReadAllText(compatibility));
-            var hash=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(gameRoot,"sora_1st.exe"))));
-            if(hash!=supported.RootElement.GetProperty("sha256").GetString())throw new InvalidOperationException(UiText.T("error.unsupported.version"));
-        }
+        ValidateSupportedGame(gameRoot);
         package = Path.GetFullPath(package);
         foreach (var required in new[] { "xinput1_4.dll", "ED9Loader", "Mod/ScherazardSummon/asset/common/model" })
             if (!File.Exists(Path.Combine(package,required)) && !Directory.Exists(Path.Combine(package,required)))

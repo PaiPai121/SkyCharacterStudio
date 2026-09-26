@@ -81,6 +81,7 @@ public partial class MainWindow : Window
         ResetShapeButton.Content = UiText.T("reset");
         ResetShapeButton.ToolTip = UiText.T("reset.tooltip");
         InstallButton.Content = UiText.T("install");
+        InstallButton.ToolTip = UiText.T("install.tooltip");
         SummonTestingBox.Content = UiText.T("summon");
         RestoreButton.Content = UiText.T("restore");
         if (_statusKey is not null)
@@ -304,6 +305,9 @@ public partial class MainWindow : Window
         try {
             var target = GameInstaller.ValidateGameRoot(GamePathBox.Text);
             if (GameInstaller.IsGameRunning()) throw new InvalidOperationException(UiText.T("error.game.running"));
+            GameInstaller.ValidateSupportedGame(target);
+            var testSummon=SummonTestingBox.IsChecked==true;
+            if (testSummon) StudioSummonService.ValidateScriptSource(target);
             var expected = Path.Combine(target,"pac","steam","asset_common_model.pac");
             if (_modelArchive is null || !Path.GetFullPath(_modelArchive.Path).Equals(expected,StringComparison.OrdinalIgnoreCase))
                 await ScanAsync();
@@ -313,7 +317,6 @@ public partial class MainWindow : Window
             SetActionState(false);
             var strength=(int)Math.Round(ShapeSlider.Value);
             SetStatusKey("status.installing", false, strength, target);
-            var testSummon=SummonTestingBox.IsChecked==true;
             var result=await ExportService.ExportAsync(_selectedCharacter,_modelArchive,_projectRoot,strength,true,CancellationToken.None,CurrentMode,testSummon);
             if(!result.ShapeEditApplied || result.RuntimePackagePath is null) throw new InvalidOperationException(UiText.T("error.generation"));
             var backup=await Task.Run(()=>GameInstaller.Install(result.RuntimePackagePath,target,Path.Combine(_projectRoot,"install-backups")));

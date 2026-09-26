@@ -6,8 +6,8 @@ Windows x64 character shape editor for the Clouded Leopard Entertainment Steam e
 
 1. 解压整个压缩包到一个你有写入权限的文件夹，双击 Sky1stCharacterStudio.exe。不需要另装 Python 或 .NET。
 2. 选择包含 sora_1st.exe 的游戏目录，扫描并选择角色。原始 PAC 只读。
-3. 选择整体宽度或胸部／胸廓调整，拖动滑条查看实际模型；需要回到原模型时点击滑条旁的“还原原模型”（强度 0%）。年龄目录中明确标记的未成年角色禁用胸部调整；从游戏原始模型归档扫描到、但目录尚未登记的默认角色按成年处理。表面估计定位会明确标注。
-4. 退出游戏后点“应用到游戏”。默认关闭测试召唤，角色正常出场时使用修改模型。
+3. 选择整体宽度或胸部／胸廓调整，拖动滑条查看实际模型；需要回到原模型时点击滑条旁的“还原原模型”（强度 0%）。胸部调整仅对年龄目录已确认成年的角色开放；年龄未知的角色仍可调整整体宽度。表面估计定位会明确标注。
+4. 退出游戏后点“保存并应用到游戏”。这就是保存并安装按钮。默认关闭测试召唤，角色正常出场时使用修改模型。
 5. 如需快速测试，安装前勾选“启用 F8 测试召唤”；进入能自由移动的场景按 F8。F9 切换原版／修改版，再按 F8 刷新。召唤的是临时角色，不会加入队伍。
 
 ## 恢复
@@ -16,7 +16,7 @@ Windows x64 character shape editor for the Clouded Leopard Entertainment Steam e
 
 ## English quick start
 
-Extract the entire archive into a writable folder and run Sky1stCharacterStudio.exe. The UI opens in Chinese by default; use the language selector in the upper-right corner to switch to English. Select your game folder, scan, select a character and adjustment mode, and move the slider. Close the game before applying. Optional F8 test summons are disabled by default. Enable the checkbox before applying if needed; F8 creates the installed character in a free-roaming field scene, and F9 followed by F8 switches original/edited appearances. The restore button undoes the latest installation; retain install-backups.
+Extract the entire archive into a writable folder and run Sky1stCharacterStudio.exe. The UI opens in Chinese by default; use the language selector in the upper-right corner to switch to English. Select your game folder, scan, select a character and adjustment mode, and move the slider. Close the game, then click **Save & apply to game**; that button generates, saves and installs the model. Optional F8 test summons are disabled by default. Enable the checkbox before applying if needed; F8 creates the installed character in a free-roaming field scene, and F9 followed by F8 switches original/edited appearances. If the optional summon reports a missing script_sc.pac, check that the selected game folder is complete or disable F8 and retry. Only the verified CLE Steam 1.0.5.0 executable can be installed to. The restore button undoes the latest installation; retain install-backups.
 
 ## Scope and known limitations
 

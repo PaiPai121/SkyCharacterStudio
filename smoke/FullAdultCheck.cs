@@ -52,7 +52,8 @@ class FullAdultCheck {
    Console.WriteLine($"PASS WPF selection, age status, capability and preview/export: {id} {r.AgeInfo.DisplayText}");
   }
   var unknown=new CharacterRecord{ModelId="chr9999"};if(unknown.AdultShapeEligible || unknown.AgeInfo.DisplayText!="年龄资料不足")throw new Exception("Unknown misclassified");
-  var scannedUnknown=new CharacterRecord{ModelId="chr9999",IsBaseGameCharacter=true};if(!scannedUnknown.AdultShapeEligible || !scannedUnknown.AgeInfo.DefaultedFromBaseGame)throw new Exception("Scanned base-game fallback failed");
-  Console.WriteLine("PASS unknown status and scanned base-game adult fallback; all UI checks ran offscreen without controlling the user desktop");app.Shutdown();
+  var scannedUnknown=new CharacterRecord{ModelId="chr9999",IsBaseGameCharacter=true};if(scannedUnknown.AdultShapeEligible || scannedUnknown.AgeInfo.Status!="unknown")throw new Exception("Unlisted base-game character incorrectly eligible");
+  var estelle=new CharacterRecord{ModelId="chr5000",IsBaseGameCharacter=true};if(estelle.AdultShapeEligible || estelle.AgeInfo.Age!=16)throw new Exception("Known minor incorrectly eligible");
+  Console.WriteLine("PASS known-minor and unknown restrictions; all UI checks ran offscreen without controlling the user desktop");app.Shutdown();
  }
 }

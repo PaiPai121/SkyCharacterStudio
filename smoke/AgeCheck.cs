@@ -30,11 +30,14 @@ class AgeCheck {
      double max=0;
      for(int m=0;m<view.Geometry.Count;m++)for(int i=0;i<view.Geometry[m].Positions.Count;i++) {var p=view.Geometry[m].Positions[i];int o=start+view.SourceMeshes[m].positionOffset+i*12;max=Math.Max(max,Math.Abs(p.X-BitConverter.ToSingle(raw,o)));max=Math.Max(max,Math.Abs(p.Y-BitConverter.ToSingle(raw,o+4)));max=Math.Max(max,Math.Abs(p.Z-BitConverter.ToSingle(raw,o+8)));}
      if(max>1e-6)throw new Exception("Preview/export mismatch "+max);
-     if(id=="chr5107") {
-      view.Frame(false);view.Measure(new Size(800,800));view.Arrange(new Rect(0,0,800,800));view.UpdateLayout();
-      var bmp=new System.Windows.Media.Imaging.RenderTargetBitmap(800,800,96,96,System.Windows.Media.PixelFormats.Pbgra32);bmp.Render(view);
-      var enc=new System.Windows.Media.Imaging.PngBitmapEncoder();enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
-      using var f=File.Create($@"D:\work_console\Sky1stCharacterStudio\cache\age-check\julia-{strength}.png");enc.Save(f);
+     if(id=="chr5107" && (strength==0 || strength==1000)) {
+      foreach(var yaw in new[]{0.0,1.2}) {
+       typeof(LiveModelView).GetField("angle",Flags)!.SetValue(view,yaw);
+       view.Frame(false);view.Measure(new Size(800,800));view.Arrange(new Rect(0,0,800,800));view.UpdateLayout();
+       var bmp=new System.Windows.Media.Imaging.RenderTargetBitmap(800,800,96,96,System.Windows.Media.PixelFormats.Pbgra32);bmp.Render(view);
+       var enc=new System.Windows.Media.Imaging.PngBitmapEncoder();enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+       using var f=File.Create($@"D:\work_console\Sky1stCharacterStudio\cache\age-check\julia-{strength}-{yaw}.png");enc.Save(f);
+      }
      }
     }
     modes.SelectedIndex=0;Pump(Ready);
@@ -42,7 +45,8 @@ class AgeCheck {
    Console.WriteLine($"PASS WPF selection, age status, capability and preview/export: {id} {r.AgeInfo.DisplayText}");
   }
   var unknown=new CharacterRecord{ModelId="chr9999"};if(unknown.AdultShapeEligible || unknown.AgeInfo.DisplayText!="年龄资料不足")throw new Exception("Unknown misclassified");
-  var scannedUnknown=new CharacterRecord{ModelId="chr9999",IsBaseGameCharacter=true};if(!scannedUnknown.AdultShapeEligible || !scannedUnknown.AgeInfo.DefaultedFromBaseGame)throw new Exception("Scanned base-game fallback failed");
-  Console.WriteLine("PASS unknown status and scanned base-game adult fallback; all UI checks ran offscreen without controlling the user desktop");app.Shutdown();
+  var scannedUnknown=new CharacterRecord{ModelId="chr9999",IsBaseGameCharacter=true};if(scannedUnknown.AdultShapeEligible || scannedUnknown.AgeInfo.Status!="unknown")throw new Exception("Unlisted base-game character incorrectly eligible");
+  var estelle=new CharacterRecord{ModelId="chr5000",IsBaseGameCharacter=true};if(estelle.AdultShapeEligible || estelle.AgeInfo.Age!=16)throw new Exception("Known minor incorrectly eligible");
+  Console.WriteLine("PASS known-minor and unknown restrictions; all UI checks ran offscreen without controlling the user desktop");app.Shutdown();
  }
 }

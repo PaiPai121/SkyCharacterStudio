@@ -3,7 +3,11 @@
 - Added a Chinese/English UI switch in the header; Chinese remains the default and the choice is remembered per user.
 - Localized scan/install/restore status, model metadata, age and bone-detection details, contour preview labels, comparison images and generated package notes.
 - Added English character-name mappings for the main cast and safe `Character chrXXXX` fallbacks for unknown Chinese resource names.
-- Kept the existing model backend and installation behavior unchanged; this release adds language coverage without changing deformation math.
+- Added language coverage alongside installer diagnostics and a left/right deformation correction.
+- Corrected the mirrored left/right deformation frame so gravity shaping uses the same up direction on both sides.
+- Check game compatibility and optional summon script files before model generation; missing files now have actionable paths.
+- Renamed the install button “Save & apply to game” and clarified the English quick start.
+- Corrected the player package age catalog to match the reviewed source; unlisted ages no longer default to adult chest eligibility.
 
 # 0.1.3 beta
 

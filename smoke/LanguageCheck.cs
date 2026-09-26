@@ -39,19 +39,22 @@ class LanguageCheck
 
         var heading = (TextBlock)window.FindName("AppHeadingText");
         var scanButton = (Button)window.FindName("ScanButton");
+        var installButton = (Button)window.FindName("InstallButton");
         var chestItem = (ComboBoxItem)window.FindName("ChestModeItem");
         var selectedName = (TextBlock)window.FindName("SelectedNameText");
         var applyLanguage = typeof(MainWindow).GetMethod("ApplyLanguage", PrivateInstance)!;
 
         if (!heading.Text.Contains("游击士", StringComparison.Ordinal)
-            || !Equals(scanButton.Content, "扫描游戏资源"))
+            || !Equals(scanButton.Content, "扫描游戏资源")
+            || !Equals(installButton.Content, "保存并应用到游戏"))
             throw new Exception("Chinese UI resources were not applied");
 
         UiText.SetLanguage(UiLanguage.English, persist: false);
         applyLanguage.Invoke(window, null);
         Pump(() => heading.Text.Contains("Character Model Studio", StringComparison.Ordinal));
         if (!Equals(scanButton.Content, "Scan game resources")
-            || !Equals(chestItem.Content, "Chest / torso (automatic placement)"))
+            || !Equals(chestItem.Content, "Chest / torso (automatic placement)")
+            || !Equals(installButton.Content, "Save & apply to game"))
             throw new Exception("English UI resources were not applied");
         if (selectedName.Text.Contains("雪拉扎德", StringComparison.Ordinal))
             throw new Exception("Selected character name was not localized");

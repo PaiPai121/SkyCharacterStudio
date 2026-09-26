@@ -209,7 +209,7 @@
                     <Slider x:Name="ShapeSlider" Minimum="-500" Maximum="1000" Value="0" TickFrequency="10" IsSnapToTickEnabled="False" ValueChanged="ShapeSlider_ValueChanged" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=ShapeSlider, StringFormat={}{0:0}%}" Foreground="{StaticResource CyanBrush}" FontSize="15" VerticalAlignment="Center" Margin="12,0,0,0" />
                     <Button x:Name="ResetShapeButton" Grid.Column="2" Content="还原原模型" ToolTip="将强度归零，回到原模型位置" Click="ResetShapeButton_Click" Margin="10,0,0,0" />
-                    <Button x:Name="InstallButton" Grid.Column="3" Content="应用到游戏" Click="InstallButton_Click" Background="#245261" Margin="10,0,0,0" />
+                    <Button x:Name="InstallButton" Grid.Column="3" Content="保存并应用到游戏" Click="InstallButton_Click" Background="#245261" Margin="10,0,0,0" />
                     <CheckBox x:Name="SummonTestingBox" Grid.Column="4" Content="启用 F8 测试召唤" Foreground="{StaticResource MutedBrush}" IsChecked="False" VerticalAlignment="Center" Margin="12,0,0,0" />
                     <Button x:Name="RestoreButton" Grid.Column="5" Content="撤销上次安装" Click="RestoreButton_Click" Margin="12,0,0,0" />
                 </Grid>
@@ -217,7 +217,7 @@
         </Border>
 
         <Grid Grid.Row="3" Margin="2,9,2,0">
-            <TextBlock x:Name="StatusText" Text="准备扫描。调整完成后，退出游戏并点击“应用到游戏”。" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+            <TextBlock x:Name="StatusText" Text="准备扫描。调整完成后，退出游戏并点击“保存并应用到游戏”。" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
         </Grid>
     </Grid>
 </Window>

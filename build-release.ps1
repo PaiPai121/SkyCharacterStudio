@@ -276,7 +276,11 @@ try {
         Write-Host '已按参数跳过 WPF 离线检查。'
     }
 
-    Compress-Archive -Path (Join-Path $portableDirectory '*') -DestinationPath $zipPath -CompressionLevel Optimal -Force
+    Invoke-Checked $python @(
+        '-X', 'utf8', (Join-Path $root 'tools\create_release_zip.py'),
+        '--stage', $portableDirectory,
+        '--zip', $zipPath
+    ) '生成并逐文件校验 ZIP 发布包'
     Require-Path $zipPath 'ZIP 发布包'
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [IO.Compression.ZipFile]::OpenRead($zipPath)

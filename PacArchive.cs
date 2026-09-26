@@ -25,7 +25,7 @@ public sealed class PacArchive
 
     public static PacArchive Load(string path)
     {
-        if (!File.Exists(path)) throw new FileNotFoundException(UiText.T("error.pac.missing"), path);
+        if (!File.Exists(path)) throw new FileNotFoundException(UiText.F("error.pac.missing.path", path), path);
         var fileInfo = new FileInfo(path);
         if (fileInfo.Length < 16) throw new InvalidDataException(UiText.T("error.pac.small"));
 

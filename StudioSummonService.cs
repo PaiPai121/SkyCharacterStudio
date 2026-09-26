@@ -8,6 +8,17 @@ namespace Sky1stCharacterStudio;
 
 public static class StudioSummonService
 {
+    public static PacArchive ValidateScriptSource(string game)
+    {
+        var path = Path.Combine(game, "pac", "steam", "script_sc.pac");
+        if (!File.Exists(path))
+            throw new FileNotFoundException(UiText.F("error.summon.script.missing", path), path);
+        var scripts = PacArchive.Load(path);
+        if (!scripts.TryGet("script_sc/scena/mp0000_ev.dat", out _))
+            throw new InvalidDataException(UiText.F("error.summon.script.function.path", path));
+        return scripts;
+    }
+
     public static async Task ConfigureAsync(string package, string game, string modelId, string displayName)
     {
         if (!Regex.IsMatch(modelId, @"\Achr[0-9]{4}\z")) throw new InvalidDataException(UiText.T("error.summon.invalid.id"));
@@ -15,7 +26,7 @@ public static class StudioSummonService
         var dat=Path.Combine(mod,"ScherazardSummon.dat");
         var models=Path.Combine(mod,"asset","common","model");
         if(!File.Exists(dat)) {
-            var scripts=PacArchive.Load(Path.Combine(game,"pac","steam","script_sc.pac"));
+            var scripts=ValidateScriptSource(game);
             if(!scripts.TryGet("script_sc/scena/mp0000_ev.dat",out var entry))throw new InvalidDataException(UiText.T("error.summon.script.function"));
             File.WriteAllBytes(dat,scripts.ReadEntry(entry));
         }

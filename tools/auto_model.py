@@ -44,10 +44,12 @@ def _chest_region(pair, nodes, center, height):
     axis=_unit(axis_vector,[side,0,1])
     outward=np.asarray([side,0,0],dtype=float)
     up=np.asarray([0,1,0],dtype=float)
-    front=_unit(np.cross(outward,up),[0,0,1])
-    if float(np.dot(front,axis))<0:front=-front
-    # Keep the basis orthogonal even when an estimated region is slightly tilted.
-    up=_unit(np.cross(front,outward),[0,1,0])
+    # All models fitted by bone_profile use +Z as the torso's front.  Deriving
+    # front/up with a cross product of the outward axis mirrors UP on one side
+    # after front is flipped to +Z, so the lower-pole sag becomes an upper-pole
+    # lift there.  A reflected (rather than rotated) local frame keeps both
+    # lobes at the same vertical angle while preserving their original mesh.
+    front=np.asarray([0,0,1],dtype=float)
     origin=base+axis*axis_length*.55
     radius=float(pair['radius'])
     return {

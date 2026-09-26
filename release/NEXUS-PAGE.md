@@ -12,11 +12,11 @@ Summary: Offline character shape editor with real model previews, local installa
 
 ## Description
 
-Select a character from your own installed game, preview shape adjustments and apply the result without editing the original PAC archives. The editor supports overall width and adult-character chest/torso adjustments. Characters explicitly marked as minors remain restricted; unlisted default characters scanned from the original game model archive are treated as adults. It automatically identifies usable bones or estimates the local surface using spine/neck landmarks and skinning weights.
+Select a character from your own installed game, preview shape adjustments and click **Save & apply to game** to generate and install the result without editing the original PAC archives. The editor supports overall width and chest/torso adjustments for characters whose adulthood is confirmed in the age catalog. Minors and characters with unknown ages are restricted to overall width. It automatically identifies usable bones or estimates the local surface using spine/neck landmarks and skinning weights.
 
 Windows x64 .NET and Python runtimes are included. No original game assets are distributed. The initial beta supports only the tested Clouded Leopard Entertainment Steam executable version 1.0.5.0; installation is refused for other executable fingerprints. GungHo/global-edition compatibility is not claimed.
 
-The interface opens in Chinese and can be switched to English from the upper-right selector. See README-PLAYERS.md for Chinese instructions and an English quick start. Keep installation backups if you want to undo changes.
+The interface opens in Chinese and can be switched to English from the upper-right selector. See README-PLAYERS.md for Chinese instructions and an English quick start. The optional F8 summon requires script_sc.pac from the player's game; a missing file is reported with its full path. Keep installation backups if you want to undo changes.
 
 Optional F8 summons are off by default. Enable the test option before applying, enter a free-roaming field scene and press F8. Press F9 then F8 to compare the original and edited model. This creates a temporary test actor, not a party member.
 
