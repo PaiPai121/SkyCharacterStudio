@@ -380,6 +380,10 @@ try {
         '--zip', $candidateZip
     ) '生成并逐文件校验 ZIP 发布包'
     Require-Path $candidateZip 'ZIP 发布包'
+    Invoke-Checked $python @(
+        '-X', 'utf8', (Join-Path $root 'tools\audit_release_zip.py'),
+        '--zip', $candidateZip
+    ) '审计最终 ZIP，不允许缓存、导出模型或安装备份混入'
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [IO.Compression.ZipFile]::OpenRead($candidateZip)
     try {

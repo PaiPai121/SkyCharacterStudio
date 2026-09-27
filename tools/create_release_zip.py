@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import json
 import zipfile
 from pathlib import Path
 
@@ -26,6 +27,27 @@ if len(names) != len(set(names)):
 if any(p.is_symlink() or p.resolve().is_relative_to(stage) is False for p in files):
     raise SystemExit("Release contains a symlink or a path outside staging")
 
+manifest_path = stage / "release-manifest.json"
+if not manifest_path.is_file():
+    raise SystemExit("Release stage has no manifest")
+manifest = json.loads(manifest_path.read_text(encoding="utf8"))
+declared = manifest.get("files")
+if not isinstance(declared, dict):
+    raise SystemExit("Release manifest has no file list")
+expected = set(declared) | {"release-manifest.json"}
+actual = set(names)
+if actual != expected:
+    extra = sorted(actual - expected)
+    missing = sorted(expected - actual)
+    raise SystemExit(f"Release stage differs from manifest; extra={extra[:5]}, missing={missing[:5]}")
+state_roots = {"cache", "exports", "install-backups", "logs", "_smoke", "_second_install_smoke"}
+game_extensions = {".mdl", ".dat", ".dds", ".pac", ".blend", ".fbx"}
+for name in names:
+    if name.split("/", 1)[0].lower() in state_roots or name.lower() == "game-directory.txt":
+        raise SystemExit(f"Release stage contains local user state: {name}")
+    if Path(name).suffix.lower() in game_extensions:
+        raise SystemExit(f"Release stage contains a game model or asset: {name}")
+
 archive_path.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9, allowZip64=True) as zip_out:
     for file, name in zip(files, names):
@@ -45,5 +67,7 @@ with zipfile.ZipFile(archive_path) as zip_in:
                 archive_hash.update(chunk)
         if source_hash.digest() != archive_hash.digest():
             raise SystemExit(f"Release ZIP content mismatch: {entry.filename}")
+        if entry.filename != "release-manifest.json" and archive_hash.hexdigest().lower() != str(declared[entry.filename]).lower():
+            raise SystemExit(f"Release ZIP differs from manifest: {entry.filename}")
 
 print(f"PASS release ZIP: {len(files)} file entries, no directories or duplicates, all contents match staging")

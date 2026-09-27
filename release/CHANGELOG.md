@@ -1,3 +1,8 @@
+# 0.3.4 beta
+
+- Rebuilt the portable package from a fresh release stage after a manually repacked 0.3.3 archive included generated cache, exports, and installation backups.
+- Release ZIP creation now requires an exact match to the stage manifest and rejects user data and game-model files.
+
 # 0.3.3 beta
 
 - Included the inspected 2nd Chapter loader in the portable package and made release builds reject a missing or mismatched loader. 2nd installation selects the bundled loader automatically, without asking players to download a DLL.
