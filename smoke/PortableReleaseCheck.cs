@@ -8,7 +8,14 @@ using Sky1stCharacterStudio;
 class PortableReleaseCheck {
  static readonly BindingFlags F=BindingFlags.Instance|BindingFlags.NonPublic;
  static string FindProjectRoot(){var directory=new DirectoryInfo(AppContext.BaseDirectory);while(directory is not null){if(File.Exists(Path.Combine(directory.FullName,"SkyCharacterStudio.csproj")))return directory.FullName;directory=directory.Parent;}return AppContext.BaseDirectory;}
- static void Pump(Func<bool> done){var limit=DateTime.UtcNow.AddSeconds(120);while(!done()){if(DateTime.UtcNow>limit)throw new Exception("Timeout");var frame=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,new Action(()=>frame.Continue=false));Dispatcher.PushFrame(frame);Thread.Sleep(10);}}
+ static void Pump(Func<bool> done,string stage="operation"){
+  var limit=DateTime.UtcNow.AddSeconds(120);var nextProgress=DateTime.UtcNow.AddSeconds(10);
+  while(!done()){
+   if(DateTime.UtcNow>limit)throw new Exception("Timeout during "+stage);
+   if(DateTime.UtcNow>=nextProgress){Console.WriteLine("STAGE "+stage+" still active");nextProgress=DateTime.UtcNow.AddSeconds(10);}
+   var frame=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,new Action(()=>frame.Continue=false));Dispatcher.PushFrame(frame);Thread.Sleep(10);
+  }
+ }
  static void WriteSingleModelPac(PacArchive source,PacEntry entry,string path){
   var name=Encoding.UTF8.GetBytes(entry.Name);var model=source.ReadEntry(entry);var offset=checked((ulong)(48+name.Length+1));
   using var writer=new BinaryWriter(File.Create(path),Encoding.UTF8);
@@ -34,13 +41,16 @@ class PortableReleaseCheck {
   var test=Export(101,true);if(!test.SummonEnabled || !File.Exists(Path.Combine(test.RuntimePackagePath!,"Mod/ScherazardSummon/asset/common/model/chr_studio_original.mdl")))throw new Exception("Missing original comparison");
   var fake=Path.Combine(smokeRoot,"test-game");Directory.CreateDirectory(Path.Combine(fake,"pac/steam"));File.Copy(Path.Combine(game,"sora_1st.exe"),Path.Combine(fake,"sora_1st.exe"),true);
   var fakePacPath=Path.Combine(fake,"pac/steam/asset_common_model.pac");WriteSingleModelPac(archive,r.ModelEntry,fakePacPath);
+  using(var imageWriter=new BinaryWriter(File.Create(Path.Combine(fake,"pac/steam/image.pac")))){
+   imageWriter.Write(Encoding.ASCII.GetBytes("FPAC"));imageWriter.Write(0u);imageWriter.Write(16u);imageWriter.Write(0u);
+  }
   GameInstaller.ValidateSupportedGame(fake);
   try { StudioSummonService.ValidateScriptSource(fake);throw new Exception("Missing summon PAC accepted"); }
   catch(FileNotFoundException error) { if(!error.Message.Contains("script_sc.pac") || !error.Message.Contains("F8"))throw; }
   ((TextBox)w.FindName("GamePathBox")).Text=fake;
   if(box.Items.Count!=0 || ((Button)w.FindName("InstallButton")).IsEnabled)throw new Exception("Old game models remained after changing the target");
   var fakeScan=(Task)typeof(MainWindow).GetMethod("ScanAsync",F)!.Invoke(w,null)!;Pump(()=>fakeScan.IsCompleted);fakeScan.GetAwaiter().GetResult();
-  box.SelectedItem=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5107");Pump(Ready);
+  box.SelectedItem=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5107");Pump(Ready,"isolated 1st preview");
   ((CheckBox)w.FindName("SummonTestingBox")).IsChecked=true;
   ((ComboBox)w.FindName("ShapeModeBox")).SelectedIndex=0;
   Pump(Ready);
