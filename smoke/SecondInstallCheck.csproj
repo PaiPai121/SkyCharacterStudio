@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="SecondInstallCheck.cs" />
+    <Reference Include="SkyCharacterStudio"><HintPath>$(StudioReference)</HintPath></Reference>
+    <Content Include="..\assets\character-ages.json" Link="assets\character-ages.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\assets\character-ages-2nd.json" Link="assets\character-ages-2nd.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\assets\supported-game.json" Link="assets\supported-game.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

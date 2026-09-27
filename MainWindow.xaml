@@ -151,12 +151,19 @@
                         <TextBlock x:Name="LiveHeadingText" Text="实时模型 · 拖动旋转，滚轮缩放" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
                         <Border Grid.Row="1" Background="#09131E" BorderBrush="#325766" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,10,0,10">
                             <Grid>
-                                <Image x:Name="PortraitImage" Stretch="Uniform" />
                                 <local:LiveModelView x:Name="LiveView" Visibility="Collapsed" />
+                                <Border x:Name="PreviewLoadingPanel" Background="#111E2A" CornerRadius="6">
+                                    <StackPanel Width="310" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock x:Name="PreviewStageText" Text="等待模型" Foreground="{StaticResource GoldBrush}" FontSize="19" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
+                                        <TextBlock x:Name="PreviewLoadingHintText" Text="选择角色后将在这里显示实时模型" Foreground="{StaticResource MutedBrush}" FontSize="12" TextAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,0" />
+                                        <ProgressBar x:Name="PreviewProgressBar" IsIndeterminate="True" Visibility="Collapsed" Height="4" Margin="0,24,0,0" Foreground="{StaticResource CyanBrush}" Background="#294252" />
+                                        <TextBlock x:Name="PreviewElapsedText" Foreground="{StaticResource MutedBrush}" FontSize="11" TextAlignment="Center" Margin="0,12,0,0" />
+                                    </StackPanel>
+                                </Border>
                             </Grid>
                         </Border>
                         <StackPanel Grid.Row="2">
-                            <TextBlock x:Name="PortraitStatusText" Text="头像/贴图预览会从 image.pac 读取；雪拉扎德可切换原版与调整后 3D 渲染" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+                            <TextBlock x:Name="PortraitStatusText" Text="选择角色后显示实时模型；贴图会随模型加载。" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
                             <StackPanel Orientation="Horizontal">
                                 <Button x:Name="PreviewToggleButton" Content="切换原版" Click="PreviewToggleButton_Click" Margin="0,8,0,0" />
                                 <Button x:Name="FullBodyButton" Content="全身" Click="FullBody_Click" Margin="8,8,0,0" />

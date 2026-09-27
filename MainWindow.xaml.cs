@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Microsoft.Win32;
 
 namespace Sky1stCharacterStudio;
@@ -13,13 +13,15 @@ namespace Sky1stCharacterStudio;
 public partial class MainWindow : Window
 {
     private readonly string _projectRoot;
-    private readonly PreviewService _previewService;
     private readonly ObservableCollection<CharacterRecord> _visibleCharacters = new();
     private List<CharacterRecord> _allCharacters = new();
     private PacArchive? _modelArchive;
     private PacArchive? _imageArchive;
     private CharacterRecord? _selectedCharacter;
     private int _previewGeneration;
+    private CancellationTokenSource? _previewCancellation;
+    private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly Stopwatch _previewClock = new();
     private bool _isScanning;
     private GameEdition _edition = GameEdition.First;
     private bool _showAdjustedPreview;
@@ -33,7 +35,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         UiText.Initialize();
         _projectRoot = ResolveProjectRoot();
-        _previewService = new PreviewService(_projectRoot);
+        _previewTimer.Tick += (_, _) => PreviewElapsedText.Text = UiText.F("preview.elapsed", (int)_previewClock.Elapsed.TotalSeconds);
         GamePathBox.Text = FindDefaultGameRoot();
         var savedPath = Path.Combine(_projectRoot, "game-directory.txt");
         if (File.Exists(savedPath))
@@ -75,6 +77,10 @@ public partial class MainWindow : Window
         FilterBox.ToolTip = UiText.T("filter.tooltip");
         CurrentModelLabel.Text = UiText.T("selected.model");
         LiveHeadingText.Text = UiText.T("live.heading");
+        if (_previewClock.IsRunning) {
+            PreviewLoadingHintText.Text = UiText.T("preview.loading.hint");
+            PreviewElapsedText.Text = UiText.F("preview.elapsed", (int)_previewClock.Elapsed.TotalSeconds);
+        } else PreviewLoadingHintText.Text = UiText.T("preview.select.hint");
         PortraitStatusText.Text = UiText.T("portrait.status");
         PreviewToggleButton.Content = _showAdjustedPreview ? UiText.T("toggle.original") : UiText.T("toggle.adjusted");
         FullBodyButton.Content = UiText.T("full.body");
@@ -87,8 +93,8 @@ public partial class MainWindow : Window
         StrengthHelpText.Text = UiText.T("strength.help");
         ResetShapeButton.Content = UiText.T("reset");
         ResetShapeButton.ToolTip = UiText.T("reset.tooltip");
-        InstallButton.Content = UiText.T(_edition == GameEdition.Second ? "export.only" : "install");
-        InstallButton.ToolTip = UiText.T(_edition == GameEdition.Second ? "export.only.tooltip" : "install.tooltip");
+        InstallButton.Content = UiText.T("install");
+        InstallButton.ToolTip = UiText.T("install.tooltip");
         SummonTestingBox.Content = UiText.T("summon");
         RestoreButton.Content = UiText.T("restore");
         if (_statusKey is not null)
@@ -121,10 +127,11 @@ public partial class MainWindow : Window
         if (_isScanning) return;
         _isScanning = true;
         ++_previewGeneration;
+        CancelPreview();
         _modelReady = false;
         _selectedCharacter = null;
         LiveView.Visibility = Visibility.Collapsed;
-        PortraitImage.Source = null;
+        ShowPreviewWaiting("status.read.index");
         SetActionState(false);
         var root = GamePathBox.Text.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         if (string.IsNullOrWhiteSpace(root))
@@ -157,8 +164,8 @@ public partial class MainWindow : Window
             _imageArchive = result.image;
             _edition = edition;
             if (edition == GameEdition.Second) SummonTestingBox.IsChecked = false;
-            InstallButton.Content = UiText.T(edition == GameEdition.Second ? "export.only" : "install");
-            InstallButton.ToolTip = UiText.T(edition == GameEdition.Second ? "export.only.tooltip" : "install.tooltip");
+            InstallButton.Content = UiText.T("install");
+            InstallButton.ToolTip = UiText.T("install.tooltip");
             _allCharacters = result.characters;
             File.WriteAllText(Path.Combine(_projectRoot,"game-directory.txt"), root);
             ApplyFilter(selectPreferred: true);
@@ -214,8 +221,8 @@ public partial class MainWindow : Window
     private string CurrentMode => (ShapeModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "width";
     private async void CharacterBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        ++_previewGeneration; _modelReady=false; LiveView.Visibility=Visibility.Collapsed;
-        if(CharacterBox.SelectedItem is not CharacterRecord record) {_selectedCharacter=null; return;}
+        ++_previewGeneration; CancelPreview(); _modelReady=false; LiveView.Visibility=Visibility.Collapsed;
+        if(CharacterBox.SelectedItem is not CharacterRecord record) {_selectedCharacter=null; ShowPreviewWaiting("preview.waiting"); return;}
         _selectedCharacter=record; _showAdjustedPreview=true;
         ChestModeItem.IsEnabled=false;
         ChestModeItem.ToolTip=UiText.T("mode.detecting");
@@ -231,16 +238,19 @@ public partial class MainWindow : Window
     private async Task LoadSelectedModelAsync() {
         var record=_selectedCharacter;if(record==null)return;
         int generation=++_previewGeneration;var mode=CurrentMode;
+        CancelPreview();
+        using var cancellation = new CancellationTokenSource();
+        _previewCancellation = cancellation;
         _modelReady=false; LiveView.Visibility=Visibility.Collapsed;
-        PortraitImage.Source=null; SetActionState(false); UpdateCharacterDetails(record);
+        BeginPreviewLoading(record.LocalizedName);
+        SetActionState(false); UpdateCharacterDetails(record);
         PortraitStatusText.Text=UiText.F("status.loading.model", record.LocalizedName);
         var directory=Path.Combine(_projectRoot,"cache","models",record.Edition.ToString(),record.ModelId,mode);
         try {
-            var portrait = await _previewService.LoadAsync(record, _imageArchive, CancellationToken.None);
+            await AutoModelService.Run(GamePathBox.Text,record.ModelId,mode,directory,isBaseGameCharacter:record.IsBaseGameCharacter,cancellationToken:cancellation.Token);
             if(generation!=_previewGeneration)return;
-            PortraitImage.Source=portrait;
-            await AutoModelService.Run(GamePathBox.Text,record.ModelId,mode,directory,isBaseGameCharacter:record.IsBaseGameCharacter);
-            if(generation!=_previewGeneration)return;
+            PreviewStageText.Text = UiText.T("preview.stage.render");
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
             LiveView.Load(directory,"model.json"); LiveView.Frame(true);
             using(var meta=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(directory,"model-meta.json")))) {
                 int missing=meta.RootElement.GetProperty("missing_textures").GetArrayLength();
@@ -274,10 +284,50 @@ public partial class MainWindow : Window
                     _materialWarning+=" "+UiText.T("shape.limited");
 
             }
-            _modelReady=true; LiveView.Visibility=Visibility.Visible;RefreshLive();
+            _modelReady=true; LiveView.Visibility=Visibility.Visible;PreviewLoadingPanel.Visibility=Visibility.Collapsed;RefreshLive();
+        } catch(OperationCanceledException) when (cancellation.IsCancellationRequested) {
+            // A newer selection owns the preview pane.
         } catch(Exception error) {
-            if(generation==_previewGeneration) PortraitStatusText.Text=UiText.F("status.preview.failed", error.Message);
-        } finally {if(generation==_previewGeneration)SetActionState(true);}
+            if(generation==_previewGeneration) {
+                ShowPreviewWaiting("preview.failed", error.Message);
+                PortraitStatusText.Text=UiText.F("status.preview.failed", error.Message);
+            }
+        } finally {
+            if(generation==_previewGeneration) {
+                EndPreviewLoading();
+                _previewCancellation=null;
+                SetActionState(true);
+            }
+        }
+    }
+
+    private void CancelPreview() => _previewCancellation?.Cancel();
+
+    private void BeginPreviewLoading(string name)
+    {
+        _previewClock.Restart();
+        _previewTimer.Start();
+        PreviewLoadingPanel.Visibility=Visibility.Visible;
+        PreviewProgressBar.Visibility=Visibility.Visible;
+        PreviewStageText.Text=UiText.F("status.loading.model",name);
+        PreviewLoadingHintText.Text=UiText.T("preview.loading.hint");
+        PreviewElapsedText.Text=UiText.F("preview.elapsed",0);
+    }
+
+    private void EndPreviewLoading()
+    {
+        _previewTimer.Stop();
+        _previewClock.Stop();
+        PreviewProgressBar.Visibility=Visibility.Collapsed;
+    }
+
+    private void ShowPreviewWaiting(string key, params object[] args)
+    {
+        EndPreviewLoading();
+        PreviewLoadingPanel.Visibility=Visibility.Visible;
+        PreviewStageText.Text=UiText.F(key,args);
+        PreviewLoadingHintText.Text=UiText.T("preview.select.hint");
+        PreviewElapsedText.Text="";
     }
 
     private void PreviewToggleButton_Click(object sender, RoutedEventArgs e)
@@ -339,6 +389,21 @@ public partial class MainWindow : Window
             catch (Exception error) when (error is InvalidOperationException or FileNotFoundException)
             { installBlocker = error.Message; }
             if (GameInstaller.IsGameRunning(target)) installBlocker = UiText.T("error.game.running");
+            string? secondLoader = null;
+            if (installBlocker is null && GameEditionInfo.Detect(target) == GameEdition.Second)
+            {
+                secondLoader = SecondLoaderService.FindAvailable(target, _projectRoot);
+                if (secondLoader is null)
+                {
+                    var dialog = new OpenFileDialog {
+                        Title = UiText.T("second.loader.choose"),
+                        Filter = "XInput DLL (xinput1_4.dll)|xinput1_4.dll|DLL (*.dll)|*.dll"
+                    };
+                    if (dialog.ShowDialog(this) == true)
+                        secondLoader = SecondLoaderService.Import(dialog.FileName, _projectRoot);
+                    else installBlocker = UiText.T("error.second.loader.missing");
+                }
+            }
             var testSummon=SummonTestingBox.IsChecked==true;
             var expected = Path.Combine(target,"pac","steam","asset_common_model.pac");
             if (_modelArchive is null || !Path.GetFullPath(_modelArchive.Path).Equals(expected,StringComparison.OrdinalIgnoreCase))
@@ -351,7 +416,7 @@ public partial class MainWindow : Window
             if (installBlocker is null) SetStatusKey("status.installing", false, strength, target);
             else SetStatusKey("status.exporting.only", false, strength, installBlocker);
             var result=await ExportService.ExportAsync(_selectedCharacter,_modelArchive,_projectRoot,strength,
-                installBlocker is null,CancellationToken.None,CurrentMode,testSummon && installBlocker is null);
+                installBlocker is null,CancellationToken.None,CurrentMode,testSummon && installBlocker is null,secondLoader);
             if(!result.ShapeEditApplied || !File.Exists(result.ModelPath)) throw new InvalidOperationException(UiText.T("error.generation"));
             if (installBlocker is not null) {
                 SetStatusKey("status.exported.only", false, result.ModelPath, installBlocker);
@@ -359,7 +424,9 @@ public partial class MainWindow : Window
             }
             if (result.RuntimePackagePath is null) throw new InvalidOperationException(UiText.T("error.generation"));
             var backup=await Task.Run(()=>GameInstaller.Install(result.RuntimePackagePath,target,Path.Combine(_projectRoot,"install-backups")));
-            if (result.SummonEnabled) SetStatusKey("status.installed.summon", false, strength, target, backup);
+            if (_selectedCharacter.Edition == GameEdition.Second)
+                SetStatusKey("status.installed.second", false, strength, target, backup);
+            else if (result.SummonEnabled) SetStatusKey("status.installed.summon", false, strength, target, backup);
             else if (result.SummonWarning is not null)
                 SetStatusKey("status.installed.summon.skipped", false, strength, target, backup, result.SummonWarning);
             else SetStatusKey("status.installed.normal", false, strength, target, backup);
@@ -394,7 +461,7 @@ public partial class MainWindow : Window
     private void SetActionState(bool enabled)
     {
         ScanButton_ClickEnabled(enabled);
-        if(RestoreButton is not null)RestoreButton.IsEnabled=enabled && _edition == GameEdition.First;
+        if(RestoreButton is not null)RestoreButton.IsEnabled=enabled;
         if(ResetShapeButton is not null)ResetShapeButton.IsEnabled=enabled && _modelReady;
         if(SummonTestingBox is not null)SummonTestingBox.IsEnabled=enabled && _edition == GameEdition.First;
         BrowseButton.IsEnabled = enabled;

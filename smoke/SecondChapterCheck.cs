@@ -85,12 +85,7 @@ internal static class SecondChapterCheck
         var modelHash = Convert.ToHexString(SHA256.HashData(archive.ReadEntry(adult.ModelEntry)));
         if (!adult.AdultShapeEligible || unknown.AdultShapeEligible)
             throw new InvalidDataException("Edition-specific age eligibility mismatch");
-        try
-        {
-            GameInstaller.ValidateSupportedGame(game);
-            throw new InvalidDataException("Unverified 2nd Chapter installation was enabled");
-        }
-        catch (InvalidOperationException) { }
+        GameInstaller.ValidateSupportedGame(game);
 
         bool Ready() => (bool)typeof(MainWindow).GetField("_modelReady", Private)!.GetValue(window)!;
         var legacy = records.Single(record => record.ModelId == "chr5003");
@@ -100,12 +95,15 @@ internal static class SecondChapterCheck
         if (((LiveModelView)window.FindName("LiveView")).Geometry.Count == 0)
             throw new InvalidDataException("No MDL v4 preview geometry");
         ((ComboBox)window.FindName("CharacterBox")).SelectedItem = adult;
-        Console.WriteLine("STAGE preview MDL v5, material and portrait");
+        Console.WriteLine("STAGE preview MDL v5 and loading panel");
+        if (((FrameworkElement)window.FindName("PreviewLoadingPanel")).Visibility != Visibility.Visible
+            || ((ProgressBar)window.FindName("PreviewProgressBar")).Visibility != Visibility.Visible)
+            throw new InvalidDataException("Model load did not show a working state");
         Pump(Ready, "preview");
         if (((LiveModelView)window.FindName("LiveView")).Geometry.Count == 0)
             throw new InvalidDataException("No live model geometry");
-        if (adult.PreviewEntry is not null && ((Image)window.FindName("PortraitImage")).Source is null)
-            throw new InvalidDataException("2nd Chapter LZ4 portrait not rendered");
+        if (((FrameworkElement)window.FindName("PreviewLoadingPanel")).Visibility != Visibility.Collapsed)
+            throw new InvalidDataException("Loading panel covered the completed model");
         if (((CheckBox)window.FindName("SummonTestingBox")).IsEnabled)
             throw new InvalidDataException("1st Chapter F8 testing remains enabled for 2nd");
 
@@ -141,13 +139,14 @@ internal static class SecondChapterCheck
         ((ComboBox)window.FindName("CharacterBox")).SelectedItem = adult;
         Pump(Ready, "restore adult preview");
         ((Slider)window.FindName("ShapeSlider")).Value = 100;
-        var export = (Task)typeof(MainWindow).GetMethod("InstallCurrentAsync", Private)!.Invoke(window, null)!;
-        Pump(() => export.IsCompleted, "offline export");
-        export.GetAwaiter().GetResult();
         var project = new DirectoryInfo(AppContext.BaseDirectory);
         while (project is not null && !File.Exists(Path.Combine(project.FullName, "SkyCharacterStudio.csproj")))
             project = project.Parent;
         var outputRoot = project?.FullName ?? AppContext.BaseDirectory;
+        var export = ExportService.ExportAsync(adult, archive, outputRoot, 100, false,
+            CancellationToken.None, "width", false);
+        Pump(() => export.IsCompleted, "offline export");
+        var exported = export.GetAwaiter().GetResult();
         var model = Path.Combine(outputRoot, "exports", "second", "chr5002_width_100", "asset", "common", "model", "chr5002.mdl");
         if (!File.Exists(model) || File.ReadAllBytes(model)[..4] is not [77, 68, 76, 32])
             throw new InvalidDataException("MDL v5 offline export missing or malformed");
@@ -156,10 +155,9 @@ internal static class SecondChapterCheck
             || new FileInfo(imagePac).Length != imageLength || File.GetLastWriteTimeUtc(imagePac) != imageWriteTime
             || Convert.ToHexString(SHA256.HashData(archive.ReadEntry(adult.ModelEntry))) != modelHash)
             throw new InvalidDataException("A checked game file changed during offline export");
-        var status = ((TextBlock)window.FindName("StatusText")).Text;
-        if (!status.Contains(model, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Offline export path not shown to the user");
-        Console.WriteLine("PASS scan 170; v4/v5 preview, portrait, per-game age gate; local export; installation blocked; executable hash, selected model hash, PAC metadata and proxy state unchanged");
+        if (!exported.ModelPath.Equals(model, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Offline export reported the wrong model path");
+        Console.WriteLine("PASS scan 170; v4/v5 preview; loading state; per-game age gate; local export; executable hash, selected model hash, PAC metadata and proxy state unchanged");
         app.Shutdown();
     }
 

@@ -254,7 +254,8 @@ public static class ExportService
 {
     public static async Task<ExportResult> ExportAsync(
         CharacterRecord record, PacArchive modelArchive, string projectRoot, int strength, bool buildRuntime,
-        CancellationToken cancellationToken, string mode = "width", bool enableSummon = true)
+        CancellationToken cancellationToken, string mode = "width", bool enableSummon = true,
+        string? secondLoaderPath = null)
     {
         strength = Math.Clamp(strength, -500, 1000);
         var exportRoot = record.Edition == GameEdition.Second
@@ -290,7 +291,7 @@ public static class ExportService
         string? runtimePath = null;
         SummonSetupResult? summonSetup = null;
         if (buildRuntime)
-            (runtimePath, summonSetup) = await BuildRuntimePackageAsync(record, modelPath, exportRoot, projectRoot, game, strength, cancellationToken,enableSummon);
+            (runtimePath, summonSetup) = await BuildRuntimePackageAsync(record, modelPath, exportRoot, projectRoot, game, strength, cancellationToken,enableSummon,secondLoaderPath);
 
         var message = record.IsSupportedShapeEdit
             ? (shapeApplied ? UiText.F("export.message", record.LocalizedName, strength) : UiText.T("export.copy.message"))
@@ -309,8 +310,24 @@ public static class ExportService
     }
 
     private static async Task<(string Path, SummonSetupResult Summon)> BuildRuntimePackageAsync(CharacterRecord record, string modelPath, string exportRoot,
-        string projectRoot, string game, int strength, CancellationToken cancellationToken, bool enableSummon)
+        string projectRoot, string game, int strength, CancellationToken cancellationToken, bool enableSummon,
+        string? secondLoaderPath)
     {
+        if (record.Edition == GameEdition.Second)
+        {
+            if (string.IsNullOrWhiteSpace(secondLoaderPath))
+                throw new FileNotFoundException(UiText.T("error.second.loader.missing"));
+            var sourceHash = SecondLoaderService.Validate(secondLoaderPath);
+            var secondPackage = Path.Combine(exportRoot, "Sora2nd_Runtime");
+            var secondModel = Path.Combine(secondPackage, "asset", "common", "model", record.ModelFileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(secondModel)!);
+            File.Copy(modelPath, secondModel, true);
+            var loaderCopy = Path.Combine(secondPackage, "xinput1_4.dll");
+            File.Copy(secondLoaderPath, loaderCopy, true);
+            if (!SecondLoaderService.Validate(loaderCopy).Equals(sourceHash, StringComparison.OrdinalIgnoreCase))
+                throw new IOException(UiText.T("error.second.loader.copy"));
+            return (secondPackage, new SummonSetupResult(false, null));
+        }
         var destination = System.IO.Path.Combine(exportRoot, "Scherazard_Runtime");
         var source = FindRuntimeRoot(projectRoot);
         SummonSetupResult summonSetup;

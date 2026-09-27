@@ -1,3 +1,9 @@
+# 0.3.2 beta
+
+- Enabled 2nd Chapter installation for the inspected Steam 1.3.2.0 executable with an edition-specific loose-file package. The user selects the 2nd-specific sora2looseload DLL once; the studio then backs up and copies only that DLL and the generated MDL. The 1st Chapter ED9Loader files are never copied into 2nd.
+- Added an isolated 2nd install/restore check that covers file hashes, proxy conflicts, interruption rollback, unsupported executables and unchanged PAC files. In-game model appearance and animation still require a user run.
+- Replaced the full-panel image texture shown during extraction with a model loading state, elapsed time and activity indicator. Superseded previews are cancelled, and model processing has a four-minute limit with a local log.
+
 # 0.3.1 beta
 
 - Renamed the player executable and ZIP to SkyCharacterStudio so their filenames cover both Chapters.

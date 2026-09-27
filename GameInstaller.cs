@@ -18,14 +18,15 @@ public static class GameInstaller
     {
         gameRoot = ValidateGameRoot(gameRoot);
         var edition = GameEditionInfo.Detect(gameRoot);
-        if (edition == GameEdition.Second)
-            throw new InvalidOperationException(UiText.T("error.second.install.unavailable"));
         var executablePath = Path.Combine(gameRoot, GameEditionInfo.ExecutableName(edition));
         var compatibility = Path.Combine(AppContext.BaseDirectory, "assets", "supported-game.json");
         if (!File.Exists(compatibility))
             throw new FileNotFoundException(UiText.T("error.compatibility.missing"), compatibility);
         using var supported = JsonDocument.Parse(File.ReadAllText(compatibility));
         var accepted = supported.RootElement.GetProperty("builds").EnumerateArray()
+            .Where(build => build.TryGetProperty("game", out var game)
+                ? string.Equals(game.GetString(), edition == GameEdition.Second ? "second" : "first", StringComparison.OrdinalIgnoreCase)
+                : edition == GameEdition.First)
             .Select(build => build.GetProperty("sha256").GetString())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         using var executable = File.OpenRead(executablePath);
@@ -71,12 +72,39 @@ public static class GameInstaller
         runningCheck ??= () => IsGameRunning(gameRoot);
         if (runningCheck()) throw new InvalidOperationException(UiText.T("error.game.running"));
         ValidateSupportedGame(gameRoot);
+        var edition = GameEditionInfo.Detect(gameRoot);
         package = Path.GetFullPath(package);
-        foreach (var required in new[] { "xinput1_4.dll", "ED9Loader", "Mod/ScherazardSummon/asset/common/model" })
+        var requiredPaths = edition == GameEdition.Second
+            ? new[] { "xinput1_4.dll", "asset/common/model" }
+            : new[] { "xinput1_4.dll", "ED9Loader", "Mod/ScherazardSummon/asset/common/model" };
+        foreach (var required in requiredPaths)
             if (!File.Exists(Path.Combine(package,required)) && !Directory.Exists(Path.Combine(package,required)))
                 throw new InvalidDataException(UiText.F("error.package.incomplete", required));
         var files = new List<string> { "xinput1_4.dll" };
-        foreach (var folder in new[] { "ED9Loader", "Mod" })
+        if (edition == GameEdition.Second)
+        {
+            var packageLoader = SafePath(package, "xinput1_4.dll");
+            var packageHash = SecondLoaderService.Validate(packageLoader);
+            var existingLoader = SafePath(gameRoot, "xinput1_4.dll");
+            if (File.Exists(existingLoader))
+            {
+                using var existingStream = File.OpenRead(existingLoader);
+                var existingHash = Convert.ToHexString(SHA256.HashData(existingStream));
+                if (!existingHash.Equals(packageHash, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException(UiText.F("error.second.loader.conflict", existingLoader));
+            }
+            var modelFolder = Path.Combine(package, "asset", "common", "model");
+            SafePath(package, "asset/common/model");
+            var modelFiles = Directory.GetFiles(modelFolder, "*.mdl", SearchOption.TopDirectoryOnly);
+            if (modelFiles.Length != 1 || Directory.GetFileSystemEntries(modelFolder).Length != 1)
+                throw new InvalidDataException(UiText.T("error.second.package.model"));
+            files.Add(Path.GetRelativePath(package, modelFiles[0]));
+            if (Directory.GetFileSystemEntries(package).Length != 2
+                || Directory.GetFileSystemEntries(Path.Combine(package, "asset")).Length != 1
+                || Directory.GetFileSystemEntries(Path.Combine(package, "asset", "common")).Length != 1)
+                throw new InvalidDataException(UiText.T("error.second.package.model"));
+        }
+        else foreach (var folder in new[] { "ED9Loader", "Mod" })
         {
             var options = new EnumerationOptions { RecurseSubdirectories=true, AttributesToSkip=0 };
             // Check directories before recursive enumeration to reject junctions.

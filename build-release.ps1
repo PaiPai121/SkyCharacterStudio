@@ -7,7 +7,8 @@ param(
     [switch]$KeepStaging,
     [string]$ArtifactDirectory,
     [string]$ToolchainRoot,
-    [string]$GameRoot
+    [string]$GameRoot,
+    [string]$SecondLoaderPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -49,10 +50,12 @@ function Invoke-Checked {
         [Parameter(Mandatory = $true)][string]$Label
     )
     Write-Host "`n==> $Label"
+    $stageClock = [Diagnostics.Stopwatch]::StartNew()
     & $FilePath @Arguments
     if ($LASTEXITCODE -ne 0) {
-        throw "$Label 失败（退出码 $LASTEXITCODE）。"
+        throw "$Label 失败（退出码 $LASTEXITCODE，用时 $([int]$stageClock.Elapsed.TotalSeconds) 秒）。"
     }
+    Write-Host "$Label 完成（$([int]$stageClock.Elapsed.TotalSeconds) 秒）"
 }
 
 function Get-ProjectVersion {
@@ -120,6 +123,46 @@ function Test-PortableDirectory {
         Write-Warning '当前工作树存在未提交修改；release-manifest.json 已标记 source_dirty=true。'
     }
     return $manifest
+}
+
+function Invoke-SecondInstallCheck {
+    param(
+        [Parameter(Mandatory = $true)][string]$Reference,
+        [Parameter(Mandatory = $true)][string]$OutputDirectory,
+        [Parameter(Mandatory = $true)][string]$PortableDirectory,
+        [Parameter(Mandatory = $true)][string]$GameDirectory,
+        [Parameter(Mandatory = $true)][string]$LoaderPath
+    )
+    $project = Join-Path $root 'smoke\SecondInstallCheck.csproj'
+    Require-Path $project '2nd 隔离安装检查项目'
+    Require-Path $LoaderPath '2nd 专用加载器'
+    $restore = @('restore', $project, '--runtime', $RuntimeIdentifier, '--ignore-failed-sources', '-p:NuGetAudit=false')
+    if (Test-Path -LiteralPath $nugetPackages) { $restore += "-p:RestorePackagesPath=$nugetPackages" }
+    Invoke-Checked $dotnet $restore '还原 2nd 安装检查'
+    Invoke-Checked $dotnet @(
+        'build', $project, '--configuration', $Configuration, '--no-restore',
+        ('-p:StudioReference=' + $Reference),
+        ('-p:OutputPath=' + $OutputDirectory)
+    ) '构建 2nd 安装检查'
+    foreach ($directoryName in @('assets', 'runtime', 'tools')) {
+        Copy-Item -LiteralPath (Join-Path $PortableDirectory $directoryName) -Destination (Join-Path $OutputDirectory $directoryName) -Recurse -Force
+    }
+    $oldGame = [Environment]::GetEnvironmentVariable('SKY2ND_GAME_ROOT', 'Process')
+    $oldLoader = [Environment]::GetEnvironmentVariable('SKY2ND_LOADER_PATH', 'Process')
+    $oldSmoke = [Environment]::GetEnvironmentVariable('SKY1ST_SMOKE_ROOT', 'Process')
+    try {
+        $env:SKY2ND_GAME_ROOT = $GameDirectory
+        $env:SKY2ND_LOADER_PATH = $LoaderPath
+        $env:SKY1ST_SMOKE_ROOT = $OutputDirectory
+        Invoke-Checked (Join-Path $OutputDirectory 'SecondInstallCheck.exe') @() '执行 2nd 隔离安装、冲突与撤销检查'
+    } finally {
+        if ($null -eq $oldGame) { Remove-Item Env:SKY2ND_GAME_ROOT -ErrorAction SilentlyContinue }
+        else { $env:SKY2ND_GAME_ROOT = $oldGame }
+        if ($null -eq $oldLoader) { Remove-Item Env:SKY2ND_LOADER_PATH -ErrorAction SilentlyContinue }
+        else { $env:SKY2ND_LOADER_PATH = $oldLoader }
+        if ($null -eq $oldSmoke) { Remove-Item Env:SKY1ST_SMOKE_ROOT -ErrorAction SilentlyContinue }
+        else { $env:SKY1ST_SMOKE_ROOT = $oldSmoke }
+    }
 }
 
 $root = (Get-Location).Path
@@ -303,6 +346,15 @@ try {
     } else {
         Write-Host '已按参数跳过 WPF 离线检查。'
     }
+    if (-not $SkipSmoke -and $smokeEdition -eq 'second') {
+        if ([string]::IsNullOrWhiteSpace($SecondLoaderPath)) {
+            Write-Warning '未提供 SecondLoaderPath；最终包仍可在首次安装时选择 DLL，但本次无法运行 2nd 隔离安装检查。'
+        } else {
+            Invoke-SecondInstallCheck -Reference (Join-Path $buildDirectory 'SkyCharacterStudio.dll') `
+                -OutputDirectory (Join-Path $runRoot 'second-install-smoke') `
+                -PortableDirectory $portableDirectory -GameDirectory $gameRoot -LoaderPath $SecondLoaderPath
+        }
+    }
 
     Invoke-Checked $python @(
         '-X', 'utf8', (Join-Path $root 'tools\create_release_zip.py'),
@@ -366,6 +418,11 @@ try {
             if ($null -eq $previousSmokeEnv) { Remove-Item Env:SKY1ST_SMOKE_ROOT -ErrorAction SilentlyContinue }
             else { $env:SKY1ST_SMOKE_ROOT = $previousSmokeEnv }
         }
+    }
+    if (-not $SkipSmoke -and $smokeEdition -eq 'second' -and -not [string]::IsNullOrWhiteSpace($SecondLoaderPath)) {
+        Invoke-SecondInstallCheck -Reference (Join-Path $cleanDirectory 'SkyCharacterStudio.dll') `
+            -OutputDirectory (Join-Path $cleanDirectory '_second_install_smoke') `
+            -PortableDirectory $cleanDirectory -GameDirectory $gameRoot -LoaderPath $SecondLoaderPath
     }
 
     Move-Item -LiteralPath $candidateZip -Destination $zipPath
