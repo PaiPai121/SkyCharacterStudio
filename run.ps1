@@ -1,3 +1,3 @@
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
-dotnet run --project .\Sky1stCharacterStudio.csproj --configuration Debug
+dotnet run --project .\SkyCharacterStudio.csproj --configuration Debug

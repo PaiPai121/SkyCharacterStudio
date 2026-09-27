@@ -13,7 +13,7 @@ def age_info(model_id, is_base_game_character=False, edition='first'):
     if model_id in catalog:
         return catalog[model_id]
     return {'status': 'unknown', 'age': None,
-        'basis': '尚无可核对的本作年龄资料', 'source': ''}
+        'basis': '该模型尚无经核对的年龄记录；胸部调整仅向已确认成年的模型开放。', 'source': ''}
 
 def adult_eligible(model_id, is_base_game_character=False, edition='first'):
     info = age_info(model_id, is_base_game_character, edition)

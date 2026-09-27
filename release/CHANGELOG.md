@@ -1,3 +1,10 @@
+# 0.3.1 beta
+
+- Renamed the player executable and ZIP to SkyCharacterStudio so their filenames cover both Chapters.
+- Aligned reused mesh groups in the live preview through their bone bind matrices and skin weights; the reported child Estelle hair now sits on the face.
+- Distinguished definition labels from scene aliases and disclosed reused part IDs. Expanded sourced minor status, explicit child age, and identity-unverified status in the 2nd metadata.
+- Added regression checks for the reported models and an installed-game preview alignment audit. 2nd Chapter game loading remains unverified.
+
 # 0.3.0 beta
 
 - Added 2nd Chapter FPAC scanning, MDL v4/v5 preview and width export, including LZ4 image decoding and flat chr-prefixed models.

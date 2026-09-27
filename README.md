@@ -15,10 +15,10 @@
 
 开发：`tools/auto_model.py` 在源码工作区依赖 Kuro MDL Tool 解析器和 Python 环境；`build-release.ps1` 会将依赖复制到便携包。可用 `SKY_STUDIO_TOOLCHAIN` 指定解析器工具链位置。
 
-开发者打包：在项目根目录双击 `BuildRelease.cmd`，或运行 `powershell -ExecutionPolicy Bypass -File .\build-release.ps1`。脚本会先从 `assets\Sky1stCharacterStudio.png` 自动生成多尺寸 EXE 图标，然后还原并发布自包含 win-x64 工作台、重新编译 DAT 构建器和两个原生插件、按白名单组装便携目录、检查目录中没有模型/PAC 等游戏资源，再生成 `release-artifacts\Sky1stCharacterStudio-<版本>-win-x64.zip` 及同名 `.sha256`。如果 `game-directory.txt` 指向可用的游戏目录，还会运行不启动游戏的 WPF/导出/安装回滚离线检查；没有游戏目录时只跳过这一项。`-SkipSmoke` 可跳过离线检查，`-KeepStaging` 可保留本次 `release-stage\pack-*` 临时目录以便审阅。
+开发者打包：在项目根目录双击 `BuildRelease.cmd`，或运行 `powershell -ExecutionPolicy Bypass -File .\build-release.ps1`。脚本会先从 `assets\SkyCharacterStudio.png` 自动生成多尺寸 EXE 图标，然后还原并发布自包含 win-x64 工作台、重新编译 DAT 构建器和两个原生插件、按白名单组装便携目录、检查目录中没有模型/PAC 等游戏资源，再生成 `release-artifacts\SkyCharacterStudio-<版本>-win-x64.zip` 及同名 `.sha256`。如果 `game-directory.txt` 指向可用的游戏目录，还会运行不启动游戏的 WPF/导出/安装回滚离线检查；没有游戏目录时只跳过这一项。`-SkipSmoke` 可跳过离线检查，`-KeepStaging` 可保留本次 `release-stage\pack-*` 临时目录以便审阅。
 
-角色名字自动从所选游戏目录的 table_sc/t_name.tbl 读取（缺少时回退繁中、韩文表）；一个模型对应多个名字时合并显示。未登记模型保留编号。骨骼检测独立于成年资格，支持 Breast/Bust/Mune 及常见左右、末端命名；没有完整末端时使用蒙皮表面估计；定位依据不足时禁用，不强行套用其他角色的参数。
+角色名字自动从所选游戏目录的 table_sc/t_name.tbl 读取（缺少时回退繁中、韩文表）。1st 保留原有的多名称显示；2nd 优先显示资源定义条目，场景称呼和同编号别名会注明，不能仅凭名称确认模型身份。预览会依据各网格组的骨骼绑定矩阵对齐复用部件，并提示来自其他编号的部件。未登记模型保留编号。骨骼检测独立于成年资格，支持 Breast/Bust/Mune 及常见左右、末端命名；没有完整末端时使用蒙皮表面估计；定位依据不足时禁用，不强行套用其他角色的参数。
 
-1st 年龄目录登记 54 个成年模型、15 个未成年模型。2nd 使用单独核对的 31 个成年模型目录；未登记模型统一显示“年龄资料不足”，不开放胸部调整。
+1st 年龄目录登记 54 个成年模型、15 个未成年模型。2nd 的独立目录登记 31 个成年模型、7 个未成年模型，并对 1 个名称与部件来源不一致的模型标为“身份与年龄未核实”。其他未登记模型显示“年龄未核实”。未成年、未核实模型均不开放胸部调整。
 
 最新通用定位验证：全部 54 个成年模型的 432 次导出及 WPF 逐角色检查通过。详见“成年模型审查.md”；尚未做全部角色的游戏内动画与碰撞验证。

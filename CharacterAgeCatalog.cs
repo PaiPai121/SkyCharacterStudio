@@ -9,7 +9,7 @@ public sealed class CharacterAgeInfo
     [JsonPropertyName("status")] public string Status { get; init; } = "unknown";
     [JsonPropertyName("age")] public int? Age { get; init; }
     [JsonPropertyName("name")] public string Name { get; init; } = "";
-    [JsonPropertyName("basis")] public string Basis { get; init; } = "尚无可核对的本作年龄资料";
+    [JsonPropertyName("basis")] public string Basis { get; init; } = "该模型尚无经核对的年龄记录；胸部调整仅向已确认成年的模型开放。";
     [JsonPropertyName("source")] public string Source { get; init; } = "";
     [JsonIgnore] public bool DefaultedFromBaseGame { get; init; }
     public bool IsAdult => Status == "adult" && (!Age.HasValue || Age >= 18);

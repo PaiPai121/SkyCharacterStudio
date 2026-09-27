@@ -17,7 +17,7 @@ def copy(src,dest):
  else:shutil.copy2(src,dest)
 for file in a.build.iterdir():
  if file.is_file() and file.suffix in ('.exe','.dll','.json'):copy(file,a.out/file.name)
-for name in ['character-ages.json','character-ages-2nd.json','supported-game.json','Sky1stCharacterStudio.ico']:copy(root/'assets'/name,a.out/'assets'/name)
+for name in ['character-ages.json','character-ages-2nd.json','supported-game.json','SkyCharacterStudio.ico']:copy(root/'assets'/name,a.out/'assets'/name)
 for name in ['auto_model.py','asset_codec.py','bone_profile.py','character_age.py','apply_shape.py','preview_dds.py','lib_fmtibvb.py']:copy(root/'tools'/name,a.out/'tools'/name)
 dat_builder=next((candidate for candidate in [native_dir/'build_summon_dat.exe',root/'tools'/'build_summon_dat.exe',mod/'tools'/'build_summon_dat.exe'] if candidate.exists()),None)
 if dat_builder is None:raise SystemExit('Missing build_summon_dat.exe; build native components before packaging')
@@ -58,7 +58,7 @@ ini=template/'ED9Loader/config/EventStarter.ini';ini.write_text(ini.read_text()+
 (template/'Mod/ScherazardSummon/add_dat_ini.json').write_text('{"inject":[]}',encoding='ascii')
 copy(mod/'vendor/ed9modmanager/extracted/ED9ModManager/LICENSE',a.out/'licenses/ED9ModManager.txt')
 copy(mod/'vendor/LICENSE',a.out/'licenses/KuroMDLTool-GPL-3.0.txt')
-frameworks=json.loads((a.build/'Sky1stCharacterStudio.runtimeconfig.json').read_text())['runtimeOptions']['includedFrameworks']
+frameworks=json.loads((a.build/'SkyCharacterStudio.runtimeconfig.json').read_text())['runtimeOptions']['includedFrameworks']
 for framework in frameworks:
  package=Path.home()/'.nuget/packages'/(framework['name'].lower()+'.runtime.win-x64')/framework['version']
  for file in package.iterdir():
@@ -70,7 +70,8 @@ for name in ['README-PLAYERS.md','THIRD-PARTY-NOTICES.md','CHANGELOG.md']:copy(r
 # is unnecessary for normal installation.
 for f in a.out.rglob('*'):
  if f.suffix.lower() in ['.mdl','.dat','.dds','.pac','.blend']:raise RuntimeError('Game asset in package: '+str(f))
-git=lambda *args:subprocess.check_output(['git','-c','safe.directory='+root.as_posix(),'-C',str(root),*args]).decode().strip()
+git_root=Path(os.environ.get('SKY_STUDIO_GIT_ROOT',root)).resolve()
+git=lambda *args:subprocess.check_output(['git','-c','safe.directory='+git_root.as_posix(),'-C',str(git_root),*args]).decode().strip()
 status=git('status','--porcelain','--untracked-files=all')
 manifest={'version':a.version,'source_commit':git('rev-parse','HEAD'),'source_dirty':bool(status),'files':{str(f.relative_to(a.out)).replace('\\','/'):hashlib.sha256(f.read_bytes()).hexdigest() for f in a.out.rglob('*') if f.is_file()}}
 (a.out/'release-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf8')

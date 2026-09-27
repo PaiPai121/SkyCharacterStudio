@@ -3,7 +3,7 @@ Set-Location $PSScriptRoot
 $taskPackage=Split-Path -Parent $PSScriptRoot
 Copy-Item (Join-Path $taskPackage 'tools') . -Recurse -Force
 Copy-Item (Join-Path $taskPackage 'assets') . -Recurse -Force
-dotnet publish .\Sky1stCharacterStudio.csproj -c Release -r win-x64 --self-contained true -o .\rebuilt
+dotnet publish .\SkyCharacterStudio.csproj -c Release -r win-x64 --self-contained true -o .\rebuilt
 if($LASTEXITCODE -ne 0){throw 'Requires the .NET SDK and NuGet access.'}
 Copy-Item (Join-Path $taskPackage 'runtime') .\rebuilt -Recurse -Force
 Copy-Item (Join-Path $taskPackage 'tools') .\rebuilt -Recurse -Force

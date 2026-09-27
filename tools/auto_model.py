@@ -1,5 +1,5 @@
 """Automatic MDL v4/v5 preview/export. No character-specific mesh numbers or offsets."""
-import argparse, hashlib, io, json, os, struct, sys
+import argparse, hashlib, io, json, os, re, struct, sys
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -166,6 +166,85 @@ def mesh_masks(data, group_index, mesh, regions):
         masks.append(_smooth_vertex_mask(mesh,.08+.92*np.clip(chest_weight/.20,0,1)))
     return masks
 
+def preview_group_transforms(data):
+    """Put meshes that carry a borrowed bind skeleton in the body's space.
+
+    MDL mesh groups retain their source bind matrices. The game skins them to
+    the model skeleton; drawing their POSITION buffers as static geometry can
+    leave borrowed hair above or below the head (chr5344 is one example).
+    The largest visible group is the body. A shared Head/Spine2/Root matrix
+    supplies the source-to-body bind transform for each other group.
+    """
+    groups=data['mesh_blocks']
+    sizes=[sum(len(next((b['Buffer'] for b in primitive['vb'] if b['SemanticName']=='POSITION'),[]))
+               for primitive in data['mesh_buffers'][gi]) if 'shadow' not in group['name'].lower() else -1
+           for gi,group in enumerate(groups)]
+    primary=int(np.argmax(sizes))
+    reference={node['name']:np.asarray(node['matrix'],dtype=float)
+               for node in groups[primary].get('nodes',[])}
+    transforms=[];report=[]
+    for group in groups:
+        if 'shadow' in group['name'].lower():
+            transforms.append(None)
+            continue
+        source={node['name']:np.asarray(node['matrix'],dtype=float)
+                for node in group.get('nodes',[])}
+        anchor=next((name for name in ('Head','Spine2','Root')
+                     if name in source and name in reference),None)
+        transform=np.eye(4)
+        if anchor is not None:
+            transform=np.linalg.solve(source[anchor],reference[anchor])
+            if not np.isfinite(transform).all():raise ValueError('Invalid preview bind transform')
+            # Individual vertices below use their own weighted bone matrices;
+            # facial and accessory bones need not share the anchor transform.
+        palette=[]
+        for node in group.get('nodes',[]):
+            target=reference.get(node['name'])
+            palette.append(np.linalg.solve(source[node['name']],target) if target is not None else transform)
+        palette=np.asarray(palette)
+        if palette.size and not np.isfinite(palette).all():raise ValueError('Invalid preview skin matrix')
+        transforms.append(palette)
+        if not np.allclose(transform,np.eye(4),atol=1e-4):
+            report.append({'group':group['name'],'anchor':anchor,
+                           'translation':transform[3,:3].tolist(),
+                           'scale':float(np.cbrt(abs(np.linalg.det(transform[:3,:3]))))})
+    return transforms,report
+
+def preview_vertex_matrices(mesh, palette, vertex_count):
+    if palette is None or not len(palette) or np.allclose(palette,np.eye(4),atol=1e-5):
+        return None
+    buffers={(b['SemanticName'],int(b.get('SemanticIndex',0))):np.asarray(b['Buffer'])
+             for b in mesh.get('vb',[])}
+    weights=buffers.get(('BLENDWEIGHT',0));indices=buffers.get(('BLENDINDICES',0))
+    if weights is None or indices is None:
+        return np.broadcast_to(palette[0],(vertex_count,4,4))
+    weights=np.asarray(weights,dtype=float);indices=np.asarray(indices,dtype=int)
+    if weights.shape!=indices.shape or weights.shape[0]!=vertex_count:
+        raise ValueError('Invalid preview skin weights')
+    valid=(indices>=0)&(indices<len(palette))
+    if np.any((weights>1e-6)&~valid):raise ValueError('Preview bone index outside palette')
+    weights=np.where(valid,weights,0)
+    total=weights.sum(axis=1,keepdims=True)
+    weights=np.divide(weights,total,out=np.zeros_like(weights),where=total>1e-8)
+    matrices=np.einsum('ni,nijk->njk',weights,palette[np.clip(indices,0,len(palette)-1)])
+    matrices[total[:,0]<=1e-8]=palette[0]
+    return matrices
+
+def preview_transform(points, matrices):
+    if matrices is None:return np.asarray(points,dtype=float)
+    return np.einsum('ni,nij->nj',np.asarray(points,dtype=float),matrices[:,:3,:3])+matrices[:,3,:3]
+
+def preview_normal_transform(normals, matrices):
+    if matrices is None:return np.asarray(normals,dtype=float)
+    inverse_transpose=np.linalg.inv(matrices[:,:3,:3]).transpose(0,2,1)
+    result=np.einsum('ni,nij->nj',np.asarray(normals,dtype=float),inverse_transpose)
+    return result/np.maximum(np.linalg.norm(result,axis=1,keepdims=True),1e-12)
+
+def preview_jacobian_transform(jacobian, matrices):
+    if matrices is None:return jacobian
+    linear=matrices[:,:3,:3].transpose(0,2,1)
+    return np.einsum('nab,nbc,ncd->nad',linear,jacobian,np.linalg.inv(linear))
+
 def deform(points, strength, mode, params, masks=None):
     p=np.asarray(points,dtype=float);q=p.copy();j=np.broadcast_to(np.eye(3),(len(p),3,3)).copy()
     center,regions,height,gain=params
@@ -288,8 +367,14 @@ def run(a):
     edition=getattr(a,'edition',None) or detect_edition(a.game)
     if edition!=detect_edition(a.game): raise ValueError('Requested edition does not match the selected game executable')
     raw,mats,data=prepare(a.game,a.model);params=profile(data,a.model,a.mode,is_base_game_character,edition)
+    preview_transforms,preview_alignment=(preview_group_transforms(data) if not a.export else ([],[]))
     a.out.mkdir(parents=True,exist_ok=True);result=[];missing=set();patched=bytearray(raw);start,size=sections(raw)[4]
     textures={}; imagepac=a.game/'pac/steam/image.pac'
+    borrowed_ids=sorted({match.lower() for group in data['mesh_blocks']
+                         if 'shadow' not in group['name'].lower()
+                         for label in [group['name']]+[p['material'] for p in group['primitives']]
+                         for match in re.findall(r'chr\d{4}',label,re.IGNORECASE)
+                         if match.lower()!=a.model.lower()})
     if not a.export:
         textures={Path(e['name']).name:e for e in entries(imagepac)}
     for gi,group in enumerate(data['mesh_blocks']):
@@ -340,13 +425,19 @@ def run(a):
                 if texname:missing.add(texname)
             uv=buffers.get(('TEXCOORD',0),[[0,0]]*len(p))
             uv=[[1-abs((u[0]%2)-1) if tex.get('wrapS')==1 else u[0]%1,(1-u[1])%1] for u in uv]
-            result.append(dict(name=f'{gi}_{group["name"]}_{pi}',hidden=primitive['material'] in ('shadow','chr_shadow','eyes_add','face_02'),opaque=True,positions=p.tolist(),adjusted=q.tolist(),shrink=[] if shrink is None else shrink.tolist(),normals=normals.tolist(),normalDelta=(j-np.eye(3)).reshape(-1,9).tolist(),shrinkNormalDelta=[] if shrink_j is None else (shrink_j-np.eye(3)).reshape(-1,9).tolist(),normalOffset=elements.get('NORMAL',{}).get('offset',-1),uv=uv,indices=[i for t in mb['ib']['Buffer'] for i in t],texture=png,positionOffset=elements['POSITION']['offset']))
+            matrices=preview_vertex_matrices(mb,preview_transforms[gi],len(p))
+            p_view=preview_transform(p,matrices);q_view=preview_transform(q,matrices)
+            shrink_view=None if shrink is None else preview_transform(shrink,matrices)
+            normals_view=preview_normal_transform(normals,matrices)
+            j_view=preview_jacobian_transform(j,matrices)
+            shrink_j_view=None if shrink_j is None else preview_jacobian_transform(shrink_j,matrices)
+            result.append(dict(name=f'{gi}_{group["name"]}_{pi}',hidden=primitive['material'] in ('shadow','chr_shadow','eyes_add','face_02'),opaque=True,positions=p_view.tolist(),adjusted=q_view.tolist(),shrink=[] if shrink_view is None else shrink_view.tolist(),normals=normals_view.tolist(),normalDelta=(j_view-np.eye(3)).reshape(-1,9).tolist(),shrinkNormalDelta=[] if shrink_j_view is None else (shrink_j_view-np.eye(3)).reshape(-1,9).tolist(),normalOffset=elements.get('NORMAL',{}).get('offset',-1),uv=uv,indices=[i for t in mb['ib']['Buffer'] for i in t],texture=png,positionOffset=elements['POSITION']['offset']))
     if a.export:
         path=a.out/(a.model+'.mdl');path.write_bytes(patched)
         (a.out/'report.json').write_text(json.dumps(dict(model=a.model,mode=a.mode,strength=a.strength,source_sha256=hashlib.sha256(raw).hexdigest(),output_sha256=hashlib.sha256(patched).hexdigest(),same_size=len(raw)==len(patched))))
     else:
         (a.out/'model.json').write_text(json.dumps(result,separators=(',',':')))
-        (a.out/'model-meta.json').write_text(json.dumps({'missing_textures':sorted(missing),'chest_detection':detect_chest(data),'adult_eligible':adult_eligible(a.model,is_base_game_character,edition),'age_info':age_info(a.model,is_base_game_character,edition),'deformation_gain':params[3]}))
+        (a.out/'model-meta.json').write_text(json.dumps({'missing_textures':sorted(missing),'chest_detection':detect_chest(data),'adult_eligible':adult_eligible(a.model,is_base_game_character,edition),'age_info':age_info(a.model,is_base_game_character,edition),'deformation_gain':params[3],'preview_alignment':preview_alignment,'borrowed_model_ids':borrowed_ids}))
     print(json.dumps({'ok':True,'model':a.model,'mode':a.mode,'height':params[2]}))
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--game',type=Path,required=True);p.add_argument('--model',required=True);p.add_argument('--mode',choices=['width','chest'],default='width');p.add_argument('--strength',type=int,default=0);p.add_argument('--out',type=Path,required=True);p.add_argument('--export',action='store_true');p.add_argument('--base-game-character',action='store_true');p.add_argument('--edition',choices=['first','second'])

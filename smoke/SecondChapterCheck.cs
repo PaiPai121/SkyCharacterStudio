@@ -3,6 +3,8 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Sky1stCharacterStudio;
 
@@ -67,6 +69,16 @@ internal static class SecondChapterCheck
         if (records.Count != 170 || records.Any(record => record.Edition != GameEdition.Second))
             throw new InvalidDataException($"Expected 170 2nd Chapter characters; found {records.Count}");
 
+        var child = records.Single(record => record.ModelId == "chr5344");
+        var childWithAge = records.Single(record => record.ModelId == "chr5345");
+        var bride = records.Single(record => record.ModelId == "chr5710");
+        var aliases = records.Single(record => record.ModelId == "chr5500");
+        if (child.AgeInfo.Status != "minor" || child.NameSourceKey != "second.name.scene"
+            || !child.DisplayName.Contains("童年模型", StringComparison.Ordinal)
+            || childWithAge.AgeInfo.Age != 11 || bride.AgeInfo.Status != "unverified"
+            || bride.NameSourceKey != "second.name.definition" || aliases.NameAliasCount < 4)
+            throw new InvalidDataException("2nd Chapter scene labels, shared-model aliases or age evidence was misclassified");
+
         var adult = records.Single(record => record.ModelId == "chr5002");
         var unknown = records.Single(record => record.ModelId == "chr5000");
         var archive = (PacArchive)typeof(MainWindow).GetField("_modelArchive", Private)!.GetValue(window)!;
@@ -97,13 +109,43 @@ internal static class SecondChapterCheck
         if (((CheckBox)window.FindName("SummonTestingBox")).IsEnabled)
             throw new InvalidDataException("1st Chapter F8 testing remains enabled for 2nd");
 
+        Console.WriteLine("STAGE regression preview for child hair and reused bridal parts");
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = child;
+        Pump(Ready, "child bind-pose preview");
+        var childMeshes = ((LiveModelView)window.FindName("LiveView")).SourceMeshes;
+        var hair = childMeshes.Single(mesh => mesh.name.Contains("Mesh_hair_chr5347", StringComparison.Ordinal));
+        var face = childMeshes.First(mesh => mesh.name.Contains("chr5344_face", StringComparison.Ordinal)
+            && mesh.name.EndsWith("_0", StringComparison.Ordinal));
+        var hairMin = hair.positions.Min(vertex => vertex[1]);
+        var hairMax = hair.positions.Max(vertex => vertex[1]);
+        var faceMax = face.positions.Max(vertex => vertex[1]);
+        if (hairMin >= faceMax - .08 || hairMax <= faceMax - .05 || hairMax >= faceMax + .15)
+            throw new InvalidDataException($"Child hair does not overlap the face after bind alignment: {hairMin:F3}..{hairMax:F3} / {faceMax:F3}");
+        CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5344", 0);
+        CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5344", -478);
+        var childMetaPath = Path.Combine(outputRootForPreview(), "cache", "models", "Second", "chr5344", "width", "model-meta.json");
+        using (var childMeta = System.Text.Json.JsonDocument.Parse(File.ReadAllText(childMetaPath)))
+        {
+            if (!childMeta.RootElement.GetProperty("borrowed_model_ids").EnumerateArray()
+                    .Any(value => value.GetString() == "chr5347"))
+                throw new InvalidDataException("Borrowed child hair was not disclosed in model evidence");
+        }
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = bride;
+        Pump(Ready, "bridal resource preview");
+        if (!((TextBlock)window.FindName("SelectedMetaText")).Text.Contains("chr5500", StringComparison.Ordinal))
+            throw new InvalidDataException("Reused bridal hair and face were not disclosed");
+        CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5710", 0);
+        CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5710", -478);
+
         Console.WriteLine("STAGE export without changing the game");
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = adult;
+        Pump(Ready, "restore adult preview");
         ((Slider)window.FindName("ShapeSlider")).Value = 100;
         var export = (Task)typeof(MainWindow).GetMethod("InstallCurrentAsync", Private)!.Invoke(window, null)!;
         Pump(() => export.IsCompleted, "offline export");
         export.GetAwaiter().GetResult();
         var project = new DirectoryInfo(AppContext.BaseDirectory);
-        while (project is not null && !File.Exists(Path.Combine(project.FullName, "Sky1stCharacterStudio.csproj")))
+        while (project is not null && !File.Exists(Path.Combine(project.FullName, "SkyCharacterStudio.csproj")))
             project = project.Parent;
         var outputRoot = project?.FullName ?? AppContext.BaseDirectory;
         var model = Path.Combine(outputRoot, "exports", "second", "chr5002_width_100", "asset", "common", "model", "chr5002.mdl");
@@ -119,5 +161,31 @@ internal static class SecondChapterCheck
             throw new InvalidDataException("Offline export path not shown to the user");
         Console.WriteLine("PASS scan 170; v4/v5 preview, portrait, per-game age gate; local export; installation blocked; executable hash, selected model hash, PAC metadata and proxy state unchanged");
         app.Shutdown();
+    }
+
+    private static string outputRootForPreview()
+    {
+        var project = new DirectoryInfo(AppContext.BaseDirectory);
+        while (project is not null && !File.Exists(Path.Combine(project.FullName, "SkyCharacterStudio.csproj")))
+            project = project.Parent;
+        return project?.FullName ?? AppContext.BaseDirectory;
+    }
+
+    private static void CapturePreview(LiveModelView view, string modelId, int strength)
+    {
+        var directory = Environment.GetEnvironmentVariable("SKY2ND_PREVIEW_CAPTURE_DIR");
+        if (string.IsNullOrWhiteSpace(directory)) return;
+        Directory.CreateDirectory(directory);
+        view.SetStrength(strength);
+        view.Frame(true);
+        view.Measure(new Size(1000, 800));
+        view.Arrange(new Rect(0, 0, 1000, 800));
+        view.UpdateLayout();
+        var bitmap = new RenderTargetBitmap(1000, 800, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(view);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var file = File.Create(Path.Combine(directory, $"{modelId}_{strength}.png"));
+        encoder.Save(file);
     }
 }

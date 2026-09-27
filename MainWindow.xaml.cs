@@ -254,6 +254,15 @@ public partial class MainWindow : Window
                 var boneNames=bones.TryGetProperty("bones",out var boneList)
                     ? string.Join(UiText.T("bone.names.separator"),boneList.EnumerateArray().Select(b=>b.GetString())) : "";
                 SelectedMetaText.Text+="\n\n"+boneStatus+(boneNames.Length>0 ? "\n"+boneNames : "")+"\n"+UiText.F("eligibility", eligibility);
+                if (record.Edition == GameEdition.Second) {
+                    var borrowed = meta.RootElement.GetProperty("borrowed_model_ids").EnumerateArray()
+                        .Select(value => value.GetString()).Where(value => !string.IsNullOrWhiteSpace(value)).ToArray();
+                    if (borrowed.Length > 0)
+                        SelectedMetaText.Text += "\n" + UiText.F("second.borrowed", string.Join(", ", borrowed));
+                    var aligned = meta.RootElement.GetProperty("preview_alignment").GetArrayLength();
+                    if (aligned > 0)
+                        SelectedMetaText.Text += "\n" + UiText.F("second.aligned", aligned);
+                }
 
                 ChestModeItem.IsEnabled=record.AdultShapeEligible && recognized;
                 var ageBasis=UiText.AgeBasis(record.AgeInfo.Basis, record.AgeInfo.Source);
@@ -428,7 +437,7 @@ public partial class MainWindow : Window
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "Sky1stCharacterStudio.csproj"))) return directory.FullName;
+            if (File.Exists(Path.Combine(directory.FullName, "SkyCharacterStudio.csproj"))) return directory.FullName;
             directory = directory.Parent;
         }
         return AppContext.BaseDirectory;

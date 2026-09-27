@@ -10,7 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="SecondChapterCheck.cs" />
-    <Reference Include="Sky1stCharacterStudio"><HintPath>$(StudioReference)</HintPath></Reference>
+    <Reference Include="SkyCharacterStudio"><HintPath>$(StudioReference)</HintPath></Reference>
     <Content Include="..\assets\character-ages.json" Link="assets\character-ages.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\assets\character-ages-2nd.json" Link="assets\character-ages-2nd.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\assets\supported-game.json" Link="assets\supported-game.json" CopyToOutputDirectory="PreserveNewest" />

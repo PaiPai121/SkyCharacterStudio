@@ -80,6 +80,14 @@ public static class UiText
             ["portrait.found"] = ("已找到角色头像贴图", "Character portrait texture found"),
             ["portrait.missing"] = ("未找到角色头像，使用轮廓预览", "No character portrait found; using contour preview"),
             ["support"] = ("自动读取模型、材质和骨骼；加载成功后可调整", "Models, materials and bones are read automatically; adjust after loading succeeds"),
+            ["second.name.note"] = ("名称来自游戏资源表，部分模型复用其他角色部件；请以预览核对外观。", "Names come from the game resource table; some models reuse other characters' parts. Check the preview before using a model."),
+            ["second.name.tag"] = ("（资源名称）", " (resource name)"),
+            ["second.name.definition"] = ("有独立的资源定义条目。", "An independent resource definition exists."),
+            ["second.name.scene"] = ("名称仅见于场景称呼。", "This label appears only in scene entries."),
+            ["second.name.missing"] = ("资源名称未登记。", "No resource label was found."),
+            ["second.name.aliases"] = ("同编号共有 {0} 种称呼。", "This model ID has {0} distinct labels."),
+            ["second.borrowed"] = ("检测到复用部件编号：{0}；资源名称不能据此证明角色身份。", "Reused part IDs: {0}. The resource label alone does not prove character identity."),
+            ["second.aligned"] = ("预览已按骨架绑定对齐 {0} 组部件。", "Preview aligned {0} mesh groups using their bind skeletons."),
             ["bone.detect"] = ("骨骼检测：{0}", "Bone detection: {0}"),
             ["eligibility"] = ("资格：{0}", "Eligibility: {0}"),
             ["bone.names.separator"] = ("、", ", "),
@@ -94,7 +102,8 @@ public static class UiText
             ["scherazard.contour"] = ("雪拉扎德轮廓", "Scherazard contour"),
             ["preview.adjusted.info"] = ("实时预览：{0}% · 导出使用同一强度。{1}；光照以游戏内为准。", "Live preview: {0}% · exports use the same strength. {1}; lighting is determined by the game."),
             ["preview.original.info"] = ("正在对照原版（0%）；返回当前调整可查看 {0}%。", "Comparing with the original (0%); choose “Show adjusted” to view {0}% again."),
-            ["age.unknown"] = ("年龄资料不足", "Age information unavailable"),
+            ["age.unknown"] = ("年龄未核实", "Age not verified"),
+            ["age.unverified"] = ("身份与年龄未核实", "Identity and age not verified"),
             ["age.adult"] = ("已确认成年", "Confirmed adult"),
             ["age.adult.default"] = ("原生未登记角色 · 默认成年", "Base-game character not listed · adult by default"),
             ["age.minor"] = ("已确认未成年", "Confirmed minor"),
@@ -208,12 +217,15 @@ public static class UiText
         _initialized = true;
         _preferencePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Sky1stCharacterStudio", "language.txt");
+            "SkyCharacterStudio", "language.txt");
         try
         {
-            if (File.Exists(_preferencePath))
+            var existingPreference = File.Exists(_preferencePath) ? _preferencePath : Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Sky1stCharacterStudio", "language.txt");
+            if (File.Exists(existingPreference))
             {
-                var value = File.ReadAllText(_preferencePath, Encoding.UTF8).Trim();
+                var value = File.ReadAllText(existingPreference, Encoding.UTF8).Trim();
                 _current = value.Equals("en", StringComparison.OrdinalIgnoreCase)
                     ? UiLanguage.English : UiLanguage.Chinese;
             }
@@ -298,6 +310,7 @@ public static class UiText
             "adult" when info.IsAdult && info.DefaultedFromBaseGame => "age.adult.default",
             "adult" when info.IsAdult => "age.adult",
             "minor" => "age.minor",
+            "unverified" => "age.unverified",
             _ => "age.unknown"
         };
         return info.Age.HasValue ? $"{T(key)} · {F("age.years", info.Age.Value)}" : T(key);
@@ -307,7 +320,11 @@ public static class UiText
     {
         if (!IsEnglish) return basis;
         if (basis.StartsWith("由游戏原始模型归档扫描发现", StringComparison.Ordinal)) return T("age.basis.archive");
+        if (basis.StartsWith("前作官方年龄为", StringComparison.Ordinal)) return "The previous game's published age indicates a minor. This game's exact age was not inferred.";
         if (basis.StartsWith("前作官方年龄", StringComparison.Ordinal)) return T("age.basis.second");
+        if (basis.StartsWith("游戏名称表标注为", StringComparison.Ordinal)) return "The name table supplies a scene label; model parts and age require separate verification.";
+        if (basis.StartsWith("本作名称表将其标为", StringComparison.Ordinal)) return "The resource label does not establish the identity or age of the assembled model.";
+        if (basis.StartsWith("本作名称表明确标注", StringComparison.Ordinal)) return "The game's name table explicitly states an age for this model.";
         if (basis.StartsWith("《空之轨迹", StringComparison.Ordinal)) return T("age.basis.official");
         if (basis.StartsWith("本作资源表明确标注：", StringComparison.Ordinal)) return T("age.basis.table") + basis["本作资源表明确标注：".Length..];
         if (basis.StartsWith("本作名称表标注为", StringComparison.Ordinal)) return T("age.basis.name.table") + basis["本作名称表标注为".Length..];

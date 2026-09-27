@@ -3,9 +3,9 @@ Set-Location $PSScriptRoot
 $taskNugetPackages = Join-Path $env:USERPROFILE '.nuget\packages'
 $restoreOptions = @('--ignore-failed-sources', '-p:NuGetAudit=false')
 if (Test-Path -LiteralPath $taskNugetPackages) { $restoreOptions += "-p:RestorePackagesPath=$taskNugetPackages" }
-dotnet restore .\Sky1stCharacterStudio.csproj @restoreOptions
+dotnet restore .\SkyCharacterStudio.csproj @restoreOptions
 if ($LASTEXITCODE -ne 0) { throw 'dotnet restore failed.' }
-dotnet publish .\Sky1stCharacterStudio.csproj --configuration Release --self-contained false --no-restore @restoreOptions `
+dotnet publish .\SkyCharacterStudio.csproj --configuration Release --self-contained false --no-restore @restoreOptions `
     /p:PublishSingleFile=false `
     --output .\dist-summon
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed.' }

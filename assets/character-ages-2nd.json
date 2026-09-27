@@ -215,5 +215,13 @@
     "status": "adult",
     "basis": "前作官方年龄已确认成年；已核对《空之轨迹 the 2nd》名称表中的同编号角色。未推定本作具体年龄。",
     "source": "https://www.cloudedleopardent.com/en/news/5732/"
-  }
+  },
+  "chr0001": {"name":"约书亚","age":null,"status":"minor","basis":"前作官方年龄为16岁；本作名称表仍使用同编号角色。按未成年保护，未推定本作具体年龄。","source":"https://www.falcom.co.jp/sora/character/joshua.html"},
+  "chr5000": {"name":"艾丝蒂尔","age":null,"status":"minor","basis":"前作官方年龄为16岁；本作名称表仍使用同编号角色。按未成年保护，未推定本作具体年龄。","source":"https://www.falcom.co.jp/sora/character/estelle.html"},
+  "chr5004": {"name":"克萝赛","age":null,"status":"minor","basis":"前作官方年龄为16岁；本作名称表仍使用同编号角色。按未成年保护，未推定本作具体年龄。","source":"https://www.falcom.co.jp/sora/character/klose.html"},
+  "chr5006": {"name":"缇妲","age":null,"status":"minor","basis":"前作官方年龄为12岁；本作名称表仍使用同编号角色。按未成年保护，未推定本作具体年龄。","source":"https://www.falcom.co.jp/sora/character/tita.html"},
+  "chr5106": {"name":"乔丝特","age":null,"status":"minor","basis":"前作官方年龄为16岁；本作名称表仍使用同编号角色。按未成年保护，未推定本作具体年龄。","source":"https://www.cloudedleopardent.com/en/news/5732/"},
+  "chr5344": {"name":"艾丝蒂尔（童年模型）","age":null,"status":"minor","basis":"游戏名称表标注为艾丝蒂尔；模型身体与面部为儿童体型，并复用 chr5345 童年模型部件。具体年龄未核实。","source":"游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5344；asset_common_model.pac → chr5344.mdl"},
+  "chr5345": {"name":"孩童艾丝蒂尔","age":11,"status":"minor","basis":"本作名称表明确标注：孩童艾丝蒂尔（11岁）。","source":"游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5345"},
+  "chr5710": {"name":"艾妮莉新娘服装","age":null,"status":"unverified","basis":"本作名称表将其标为艾妮莉新娘服装，但发型和面部网格复用 chr5500。仅凭资源名称无法核实角色身份或年龄。","source":"游戏 pac/steam/table_sc.pac → table_sc/t_name.tbl → chr5710；asset_common_model.pac → chr5710.mdl"}
 }

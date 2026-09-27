@@ -7,7 +7,7 @@ using System.Windows.Threading;
 using Sky1stCharacterStudio;
 class PortableReleaseCheck {
  static readonly BindingFlags F=BindingFlags.Instance|BindingFlags.NonPublic;
- static string FindProjectRoot(){var directory=new DirectoryInfo(AppContext.BaseDirectory);while(directory is not null){if(File.Exists(Path.Combine(directory.FullName,"Sky1stCharacterStudio.csproj")))return directory.FullName;directory=directory.Parent;}return AppContext.BaseDirectory;}
+ static string FindProjectRoot(){var directory=new DirectoryInfo(AppContext.BaseDirectory);while(directory is not null){if(File.Exists(Path.Combine(directory.FullName,"SkyCharacterStudio.csproj")))return directory.FullName;directory=directory.Parent;}return AppContext.BaseDirectory;}
  static void Pump(Func<bool> done){var limit=DateTime.UtcNow.AddSeconds(120);while(!done()){if(DateTime.UtcNow>limit)throw new Exception("Timeout");var frame=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,new Action(()=>frame.Continue=false));Dispatcher.PushFrame(frame);Thread.Sleep(10);}}
  static void WriteSingleModelPac(PacArchive source,PacEntry entry,string path){
   var name=Encoding.UTF8.GetBytes(entry.Name);var model=source.ReadEntry(entry);var offset=checked((ulong)(48+name.Length+1));

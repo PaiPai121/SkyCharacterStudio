@@ -140,8 +140,12 @@ public static class CharacterScanner
     {
         var imageEntries = imageArchive?.Entries ?? Array.Empty<PacEntry>();
         var records = new List<CharacterRecord>();
-        var names=CharacterNames.Load(System.IO.Path.GetDirectoryName(modelArchive.Path)!);
         var edition = GameEditionInfo.Detect(GameEditionInfo.RootFromModelArchive(modelArchive.Path));
+        var archiveDirectory = System.IO.Path.GetDirectoryName(modelArchive.Path)!;
+        var names = edition == GameEdition.First
+            ? CharacterNames.Load(archiveDirectory) : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var detailedNames = edition == GameEdition.Second
+            ? CharacterNames.LoadDetails(archiveDirectory) : new Dictionary<string, CharacterNameInfo>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in modelArchive.Entries)
         {
             var slash = entry.Name.LastIndexOf('/');
@@ -155,10 +159,17 @@ public static class CharacterScanner
             if (id.Length < 4) continue;
             var face = ChoosePreview(imageEntries, id);
             var info = FindModelInfo(modelInfoArchive, id);
+            detailedNames.TryGetValue(id, out var nameInfo);
+            var catalogName = edition == GameEdition.Second ? CharacterAgeCatalog.Get(id, edition: edition).Name : "";
+            var displayName = !string.IsNullOrWhiteSpace(catalogName) ? catalogName
+                : nameInfo?.Label ?? (names.TryGetValue(id, out var known) ? known : $"未登记名称 · {id}");
             records.Add(new CharacterRecord
             {
                 ModelId = id,
-                DisplayName = names.TryGetValue(id, out var known) ? known : $"未登记名称 · {id}",
+                DisplayName = displayName,
+                NameSourceKey = nameInfo is null ? "second.name.missing"
+                    : nameInfo.IsDefinition ? "second.name.definition" : "second.name.scene",
+                NameAliasCount = nameInfo?.DistinctLabels ?? 0,
                 ModelEntry = entry,
                 ModelInfoEntry = info,
                 PreviewEntry = face,
@@ -167,7 +178,7 @@ public static class CharacterScanner
                 Edition = edition
             });
         }
-        return records.OrderBy(x => names.ContainsKey(x.ModelId) ? 0 : 1)
+        return records.OrderBy(x => names.ContainsKey(x.ModelId) || detailedNames.ContainsKey(x.ModelId) ? 0 : 1)
             .ThenBy(x => x.ModelId, StringComparer.OrdinalIgnoreCase).ToList();
     }
 

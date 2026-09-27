@@ -93,7 +93,7 @@ function Test-PortableDirectory {
     }
 
     foreach ($relative in @(
-        'Sky1stCharacterStudio.exe',
+        'SkyCharacterStudio.exe',
         'assets/character-ages.json',
         'assets/character-ages-2nd.json',
         'assets/supported-game.json',
@@ -123,11 +123,11 @@ function Test-PortableDirectory {
 }
 
 $root = (Get-Location).Path
-$projectFile = Join-Path $root 'Sky1stCharacterStudio.csproj'
+$projectFile = Join-Path $root 'SkyCharacterStudio.csproj'
 $packageScript = Join-Path $root 'tools\package_release.py'
 $iconScript = Join-Path $root 'tools\make_app_icon.py'
-$iconSource = Join-Path $root 'assets\Sky1stCharacterStudio.png'
-$iconOutput = Join-Path $root 'assets\Sky1stCharacterStudio.ico'
+$iconSource = Join-Path $root 'assets\SkyCharacterStudio.png'
+$iconOutput = Join-Path $root 'assets\SkyCharacterStudio.ico'
 $nativeSource = Join-Path $root 'runtime-source\tools'
 $datSource = Join-Path $root 'runtime-source\vendor\ed9_dat\ed9_dat.cpp'
 $nativeInclude = Join-Path $root 'runtime-source\vendor\ed9modmanager'
@@ -168,13 +168,13 @@ $buildDirectory = Join-Path $runRoot 'app'
 $nativeDirectory = Join-Path $runRoot 'native'
 $portableDirectory = Join-Path $runRoot 'portable'
 $smokeDirectory = Join-Path $runRoot 'smoke'
-$candidateZip = Join-Path $runRoot "Sky1stCharacterStudio-$version-$RuntimeIdentifier.zip"
+$candidateZip = Join-Path $runRoot "SkyCharacterStudio-$version-$RuntimeIdentifier.zip"
 $workspaceParent = [IO.Path]::GetFullPath((Split-Path -Parent $root))
 $cleanDirectory = [IO.Path]::GetFullPath((Join-Path $workspaceParent "Sky1stReleaseQA-$runId"))
 if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {
     $ArtifactDirectory = Join-Path $root 'release-artifacts'
 }
-$zipPath = Join-Path $ArtifactDirectory "Sky1stCharacterStudio-$version-$RuntimeIdentifier.zip"
+$zipPath = Join-Path $ArtifactDirectory "SkyCharacterStudio-$version-$RuntimeIdentifier.zip"
 $completed = $false
 
 try {
@@ -261,7 +261,7 @@ try {
                 'build', $smokeProject,
                 '--configuration', $Configuration,
                 '--no-restore',
-                ('-p:StudioReference=' + (Join-Path $buildDirectory 'Sky1stCharacterStudio.dll')),
+                ('-p:StudioReference=' + (Join-Path $buildDirectory 'SkyCharacterStudio.dll')),
                 ('-p:OutputPath=' + $smokeDirectory)
             )
             Invoke-Checked $dotnet $smokeBuild '运行前构建便携发布离线检查'
@@ -326,7 +326,7 @@ try {
     Write-Host "`n==> 从最终 ZIP 独立解压并验证启动程序"
     Expand-Archive -LiteralPath $candidateZip -DestinationPath $cleanDirectory
     $null = Test-PortableDirectory $cleanDirectory $version
-    $launcherPath = Join-Path $cleanDirectory 'Sky1stCharacterStudio.exe'
+    $launcherPath = Join-Path $cleanDirectory 'SkyCharacterStudio.exe'
     $launcher = Start-Process -FilePath $launcherPath -WorkingDirectory $cleanDirectory -WindowStyle Hidden -PassThru
     try {
         Start-Sleep -Seconds 5
@@ -343,7 +343,7 @@ try {
         $cleanSmokeBuild = @(
             'build', (Join-Path $root "smoke\$smokeName.csproj"),
             '--configuration', $Configuration, '--no-restore',
-            ('-p:StudioReference=' + (Join-Path $cleanDirectory 'Sky1stCharacterStudio.dll')),
+            ('-p:StudioReference=' + (Join-Path $cleanDirectory 'SkyCharacterStudio.dll')),
             ('-p:OutputPath=' + $cleanSmokeDirectory)
         )
         Invoke-Checked $dotnet $cleanSmokeBuild '构建最终包离线检查'

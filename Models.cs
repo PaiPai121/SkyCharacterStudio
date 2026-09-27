@@ -16,7 +16,11 @@ public sealed class CharacterRecord
 {
     public string ModelId { get; init; } = "";
     public string DisplayName { get; init; } = "";
-    public string LocalizedName => UiText.CharacterName(ModelId, DisplayName);
+    public string LocalizedName => UiText.CharacterName(ModelId, DisplayName)
+        + (Edition == GameEdition.Second && !DisplayName.StartsWith("未登记名称", StringComparison.Ordinal)
+            ? UiText.T("second.name.tag") : "");
+    public string NameSourceKey { get; init; } = "";
+    public int NameAliasCount { get; init; }
     public PacEntry ModelEntry { get; init; } = new();
     public PacEntry? ModelInfoEntry { get; init; }
     public PacEntry? PreviewEntry { get; init; }
@@ -29,7 +33,10 @@ public sealed class CharacterRecord
     public string PreviewText => PreviewEntry is null ? UiText.T("portrait.missing") : UiText.T("portrait.found");
     public CharacterAgeInfo AgeInfo => CharacterAgeCatalog.Get(ModelId, IsBaseGameCharacter, Edition);
     public bool AdultShapeEligible => AgeInfo.IsAdult;
-    public string SupportText => UiText.T("support");
+    public string SupportText => UiText.T("support") + (Edition == GameEdition.Second
+        ? "\n" + UiText.T("second.name.note") + " " + UiText.T(NameSourceKey)
+            + (NameAliasCount > 1 ? " " + UiText.F("second.name.aliases", NameAliasCount) : "")
+        : "");
 
     public override string ToString() => $"{LocalizedName}  ·  {ModelId}";
 }

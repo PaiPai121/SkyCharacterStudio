@@ -10,8 +10,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ResetButtonCheck.cs" />
-    <Reference Include="Sky1stCharacterStudio">
-      <HintPath>../bin/Release/net8.0-windows/Sky1stCharacterStudio.dll</HintPath>
+    <Reference Include="SkyCharacterStudio">
+      <HintPath>../bin/Release/net8.0-windows/SkyCharacterStudio.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>
