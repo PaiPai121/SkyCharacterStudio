@@ -55,8 +55,7 @@ internal static class SecondInstallCheck
         UiText.Initialize();
         var sourceGame = Environment.GetEnvironmentVariable("SKY2ND_GAME_ROOT")
             ?? throw new InvalidOperationException("Set SKY2ND_GAME_ROOT");
-        var loader = Environment.GetEnvironmentVariable("SKY2ND_LOADER_PATH")
-            ?? throw new InvalidOperationException("Set SKY2ND_LOADER_PATH");
+        var loader = Path.Combine(AppContext.BaseDirectory, "runtime", "second-loader", "xinput1_4.dll");
         var workspace = Environment.GetEnvironmentVariable("SKY1ST_SMOKE_ROOT")
             ?? throw new InvalidOperationException("Set SKY1ST_SMOKE_ROOT");
         var loaderHash = SecondLoaderService.Validate(loader);
@@ -144,11 +143,15 @@ internal static class SecondInstallCheck
         while (project is not null && !File.Exists(Path.Combine(project.FullName, "SkyCharacterStudio.csproj")))
             project = project.Parent;
         var projectRoot = project?.FullName ?? AppContext.BaseDirectory;
-        SecondLoaderService.Import(loader, projectRoot);
+        if (!string.Equals(SecondLoaderService.FindAvailable(fakeGame, projectRoot), loader,
+            StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The studio did not select its bundled 2nd Chapter loader");
         var app = new Application();
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
         var window = new MainWindow();
         ((TextBox)window.FindName("GamePathBox")).Text = fakeGame;
+        if (!((TextBlock)window.FindName("TargetGameText")).Text.Contains("2nd", StringComparison.Ordinal))
+            throw new InvalidDataException("The selected 2nd Chapter target is not shown");
         const BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
         var scan = (Task)typeof(MainWindow).GetMethod("ScanAsync", privateInstance)!.Invoke(window, null)!;
         Pump(() => scan.IsCompleted, "2nd UI scan");
@@ -167,6 +170,11 @@ internal static class SecondInstallCheck
         if (File.Exists(targetLoader) || File.Exists(targetModel)
             || Hash(fakeExe) != exeHash || Hash(fakePac) != pacHash)
             throw new InvalidDataException("The 2nd UI installation did not restore cleanly");
+        ((TextBox)window.FindName("GamePathBox")).Text = Path.Combine(testRoot, "not-a-game");
+        if (((TextBlock)window.FindName("TargetGameText")).Text != UiText.T("game.target.unknown")
+            || ((ComboBox)window.FindName("CharacterBox")).Items.Count != 0
+            || ((Button)window.FindName("InstallButton")).IsEnabled)
+            throw new InvalidDataException("Changing the game folder retained the old target or models");
         app.Shutdown();
         Console.WriteLine("PASS 2nd package layout, model bytes, proxy identity, isolated install, conflict guard, rollback, restore, executable gate and WPF install path; no real game files written");
     }

@@ -1,3 +1,9 @@
+# 0.3.3 beta
+
+- Included the inspected 2nd Chapter loader in the portable package and made release builds reject a missing or mismatched loader. 2nd installation selects the bundled loader automatically, without asking players to download a DLL.
+- Added a persistent target-game indicator beside the game folder. Changing folders immediately clears the previous game's scan and preview until the new folder is scanned.
+- The clean-extraction install check now uses the bundled 2nd loader, proving that the final ZIP does not depend on a developer download or cache.
+
 # 0.3.2 beta
 
 - Enabled 2nd Chapter installation for the inspected Steam 1.3.2.0 executable with an edition-specific loose-file package. The user selects the 2nd-specific sora2looseload DLL once; the studio then backs up and copies only that DLL and the generated MDL. The 1st Chapter ED9Loader files are never copied into 2nd.

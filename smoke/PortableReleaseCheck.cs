@@ -20,6 +20,7 @@ class PortableReleaseCheck {
   var root=FindProjectRoot();var smokeRoot=Environment.GetEnvironmentVariable("SKY1ST_SMOKE_ROOT") ?? root;var game=Environment.GetEnvironmentVariable("SKY1ST_GAME_ROOT") ?? @"D:\SteamLibrary\steamapps\common\Sora No Kiseki the 1st";
   var app=new Application();SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
   var w=new MainWindow();((TextBox)w.FindName("GamePathBox")).Text=game;
+  if(!((TextBlock)w.FindName("TargetGameText")).Text.Contains("1st",StringComparison.Ordinal))throw new Exception("1st target is not shown");
   var scan=(Task)typeof(MainWindow).GetMethod("ScanAsync",F)!.Invoke(w,null)!;Pump(()=>scan.IsCompleted);scan.GetAwaiter().GetResult();
   bool Ready()=>(bool)typeof(MainWindow).GetField("_modelReady",F)!.GetValue(w)!;
   Pump(Ready);var box=(ComboBox)w.FindName("CharacterBox");var r=box.Items.Cast<CharacterRecord>().Single(r=>r.ModelId=="chr5107");box.SelectedItem=r;Pump(Ready);
@@ -33,13 +34,14 @@ class PortableReleaseCheck {
   var test=Export(101,true);if(!test.SummonEnabled || !File.Exists(Path.Combine(test.RuntimePackagePath!,"Mod/ScherazardSummon/asset/common/model/chr_studio_original.mdl")))throw new Exception("Missing original comparison");
   var fake=Path.Combine(smokeRoot,"test-game");Directory.CreateDirectory(Path.Combine(fake,"pac/steam"));File.Copy(Path.Combine(game,"sora_1st.exe"),Path.Combine(fake,"sora_1st.exe"),true);
   var fakePacPath=Path.Combine(fake,"pac/steam/asset_common_model.pac");WriteSingleModelPac(archive,r.ModelEntry,fakePacPath);
-  var fakeArchive=PacArchive.Load(fakePacPath);
   GameInstaller.ValidateSupportedGame(fake);
   try { StudioSummonService.ValidateScriptSource(fake);throw new Exception("Missing summon PAC accepted"); }
   catch(FileNotFoundException error) { if(!error.Message.Contains("script_sc.pac") || !error.Message.Contains("F8"))throw; }
   ((TextBox)w.FindName("GamePathBox")).Text=fake;
+  if(box.Items.Count!=0 || ((Button)w.FindName("InstallButton")).IsEnabled)throw new Exception("Old game models remained after changing the target");
+  var fakeScan=(Task)typeof(MainWindow).GetMethod("ScanAsync",F)!.Invoke(w,null)!;Pump(()=>fakeScan.IsCompleted);fakeScan.GetAwaiter().GetResult();
+  box.SelectedItem=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5107");Pump(Ready);
   ((CheckBox)w.FindName("SummonTestingBox")).IsChecked=true;
-  typeof(MainWindow).GetField("_modelArchive",F)!.SetValue(w,fakeArchive);
   ((ComboBox)w.FindName("ShapeModeBox")).SelectedIndex=0;
   Pump(Ready);
   shapeSlider.Value=102;
@@ -64,6 +66,8 @@ class PortableReleaseCheck {
   File.WriteAllBytes(Path.Combine(fake,"sora_1st.exe"),[1,2,3]);
   try{GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);throw new Exception("Unsupported executable accepted");}catch(InvalidOperationException){}
   ((TextBox)w.FindName("GamePathBox")).Text=fake;
+  var offlineScan=(Task)typeof(MainWindow).GetMethod("ScanAsync",F)!.Invoke(w,null)!;Pump(()=>offlineScan.IsCompleted);offlineScan.GetAwaiter().GetResult();
+  box.SelectedItem=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5107");Pump(Ready);
   ((CheckBox)w.FindName("SummonTestingBox")).IsChecked=true;
   shapeSlider.Value=103;
   var offlineTask=(Task)typeof(MainWindow).GetMethod("InstallCurrentAsync",F)!.Invoke(w,null)!;
@@ -71,6 +75,9 @@ class PortableReleaseCheck {
   var offline=Path.Combine(root,"exports","chr5107_width_103","asset","common","model","chr5107.mdl");
   if(!File.Exists(offline) || !File.ReadAllBytes(model).SequenceEqual(new byte[]{1,2,3}) || File.Exists(Path.Combine(fake,"xinput1_4.dll")) ||
      !((TextBlock)w.FindName("StatusText")).Text.Contains(offline))throw new Exception("Unsupported game did not generate an offline model safely");
+  ((TextBox)w.FindName("GamePathBox")).Text="";
+  if(((TextBlock)w.FindName("TargetGameText")).Text!=UiText.T("game.target.none") || box.Items.Count!=0)
+   throw new Exception("Clearing the game folder left stale target information");
   File.WriteAllText(Path.Combine(smokeRoot,"portable-test-result.txt"),"PASS isolated WPF preview, bundled Python and native builder, normal/summon exports, missing-F8 fallback generated and installed the model, unsupported executable generated offline only, install/restore, changed-file protection. No writes to the actual game.");
   Console.WriteLine("PASS portable release checks");app.Shutdown();
  }

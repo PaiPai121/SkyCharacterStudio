@@ -23,7 +23,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly Stopwatch _previewClock = new();
     private bool _isScanning;
-    private GameEdition _edition = GameEdition.First;
+    private GameEdition? _edition;
+    private string? _scannedGameRoot;
     private bool _showAdjustedPreview;
     private bool _applyingLanguage;
     private string? _statusKey = "status.ready";
@@ -71,6 +72,7 @@ public partial class MainWindow : Window
         OfflineText.Text = UiText.T("offline");
         ScanHeadingText.Text = UiText.T("scan.panel");
         GameFolderText.Text = UiText.T("game.folder");
+        UpdateTargetGameDisplay();
         BrowseButton.Content = UiText.T("browse");
         ScanButton.Content = UiText.T("scan.button");
         ModelsHeadingText.Text = UiText.T("models");
@@ -122,14 +124,74 @@ public partial class MainWindow : Window
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e) => await ScanAsync();
 
+    private void GamePathBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        UpdateTargetGameDisplay();
+        if (_scannedGameRoot is null) return;
+        var selected = GamePathBox.Text.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.Equals(selected, _scannedGameRoot, StringComparison.OrdinalIgnoreCase)) return;
+
+        _scannedGameRoot = null;
+        ++_previewGeneration;
+        CancelPreview();
+        _modelReady = false;
+        _modelArchive = null;
+        _imageArchive = null;
+        _selectedCharacter = null;
+        _allCharacters.Clear();
+        _visibleCharacters.Clear();
+        CharacterBox.SelectedItem = null;
+        ModelCountText.Text = UiText.T("not.scanned");
+        SelectedNameText.Text = "—";
+        SelectedIdText.Text = UiText.T("waiting.scan");
+        SelectedMetaText.Text = "";
+        PortraitStatusText.Text = UiText.T("portrait.status");
+        LiveView.Visibility = Visibility.Collapsed;
+        ShowPreviewWaiting("preview.waiting");
+        SetStatusKey("status.game.changed");
+        SetActionState(true);
+    }
+
+    private void UpdateTargetGameDisplay()
+    {
+        if (TargetGameText is null || GamePathBox is null) return;
+        var selected = GamePathBox.Text.Trim();
+        _edition = null;
+        var key = "game.target.none";
+        if (!string.IsNullOrWhiteSpace(selected))
+        {
+            key = "game.target.unknown";
+            try
+            {
+                _edition = GameEditionInfo.Detect(Path.GetFullPath(selected));
+                key = _edition == GameEdition.Second ? "game.target.second" : "game.target.first";
+            }
+            catch (Exception error) when (error is ArgumentException or IOException or InvalidOperationException or UnauthorizedAccessException or NotSupportedException) { }
+        }
+        TargetGameText.Text = UiText.T(key);
+        TargetGameText.ToolTip = selected;
+        if (_edition == GameEdition.Second && SummonTestingBox is not null)
+            SummonTestingBox.IsChecked = false;
+    }
+
     private async Task ScanAsync()
     {
         if (_isScanning) return;
         _isScanning = true;
+        _scannedGameRoot = null;
         ++_previewGeneration;
         CancelPreview();
         _modelReady = false;
+        _modelArchive = null;
+        _imageArchive = null;
         _selectedCharacter = null;
+        _allCharacters.Clear();
+        _visibleCharacters.Clear();
+        CharacterBox.SelectedItem = null;
+        ModelCountText.Text = UiText.T("not.scanned");
+        SelectedNameText.Text = "—";
+        SelectedIdText.Text = UiText.T("waiting.scan");
+        SelectedMetaText.Text = "";
         LiveView.Visibility = Visibility.Collapsed;
         ShowPreviewWaiting("status.read.index");
         SetActionState(false);
@@ -167,6 +229,7 @@ public partial class MainWindow : Window
             InstallButton.Content = UiText.T("install");
             InstallButton.ToolTip = UiText.T("install.tooltip");
             _allCharacters = result.characters;
+            _scannedGameRoot = root;
             File.WriteAllText(Path.Combine(_projectRoot,"game-directory.txt"), root);
             ApplyFilter(selectPreferred: true);
             var portraitCount = _allCharacters.Count(x => x.PreviewEntry is not null);
@@ -179,6 +242,7 @@ public partial class MainWindow : Window
             _allCharacters.Clear();
             _visibleCharacters.Clear();
             _selectedCharacter = null;
+            _scannedGameRoot = null;
             CharacterBox.SelectedItem = null;
             SetStatusKey("status.scan.failed", true, exception.Message);
         }
@@ -394,15 +458,7 @@ public partial class MainWindow : Window
             {
                 secondLoader = SecondLoaderService.FindAvailable(target, _projectRoot);
                 if (secondLoader is null)
-                {
-                    var dialog = new OpenFileDialog {
-                        Title = UiText.T("second.loader.choose"),
-                        Filter = "XInput DLL (xinput1_4.dll)|xinput1_4.dll|DLL (*.dll)|*.dll"
-                    };
-                    if (dialog.ShowDialog(this) == true)
-                        secondLoader = SecondLoaderService.Import(dialog.FileName, _projectRoot);
-                    else installBlocker = UiText.T("error.second.loader.missing");
-                }
+                    installBlocker = UiText.T("error.second.loader.missing");
             }
             var testSummon=SummonTestingBox.IsChecked==true;
             var expected = Path.Combine(target,"pac","steam","asset_common_model.pac");

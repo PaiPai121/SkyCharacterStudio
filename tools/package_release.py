@@ -2,7 +2,7 @@
 import argparse,hashlib,json,os,shutil,subprocess,sys
 from pathlib import Path
 
-p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--native-dir',type=Path);p.add_argument('--version',required=True);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--native-dir',type=Path);p.add_argument('--second-loader',type=Path,required=True);p.add_argument('--version',required=True);a=p.parse_args()
 root=Path(__file__).resolve().parents[1];mod=Path(os.environ.get('SKY_STUDIO_TOOLCHAIN',root.parent/'Sky1st-Scherazard-Mod')).resolve()
 native_dir=(a.native_dir or (root/'release-stage'/'native')).resolve()
 if hashlib.sha256((root/'assets/character-ages.json').read_bytes()).hexdigest()!=(root/'release/verified-catalog.sha256').read_text().strip():
@@ -44,6 +44,13 @@ template=a.out/'runtime/mod-template';base=mod/'dist/Scherazard_Runtime'
 if not base.is_dir():raise SystemExit('Missing verified runtime template: '+str(base))
 for name in ['xinput1_4.dll','ED9Loader/ED9ModManager.exe','ED9Loader/plugins/ScriptInject.dll']:
  copy(base/name,template/name)
+second_loader=a.second_loader.resolve()
+supported=json.loads((root/'assets/supported-game.json').read_text(encoding='utf8'))
+second_loader_size=second_loader.stat().st_size
+second_loader_hash=hashlib.sha256(second_loader.read_bytes()).hexdigest()
+if not any(item['game']=='second' and item['size']==second_loader_size and item['sha256'].lower()==second_loader_hash for item in supported['loaders']):
+ raise SystemExit('The 2nd Chapter loader does not match assets/supported-game.json; refusing to package it')
+copy(second_loader,a.out/'runtime/second-loader/xinput1_4.dll')
 native_plugins={
  'EventStarter.dll':[native_dir/'EventStarter.dll',root/'release-stage'/'native'/'EventStarter.dll',base/'ED9Loader/plugins/EventStarter.dll'],
  'SceneRedirect.dll':[native_dir/'SceneRedirect.dll',root/'release-stage'/'native'/'SceneRedirect.dll',base/'ED9Loader/plugins/SceneRedirect.dll']
@@ -58,6 +65,7 @@ ini=template/'ED9Loader/config/EventStarter.ini';ini.write_text(ini.read_text()+
 (template/'Mod/ScherazardSummon/add_dat_ini.json').write_text('{"inject":[]}',encoding='ascii')
 copy(mod/'vendor/ed9modmanager/extracted/ED9ModManager/LICENSE',a.out/'licenses/ED9ModManager.txt')
 copy(mod/'vendor/LICENSE',a.out/'licenses/KuroMDLTool-GPL-3.0.txt')
+copy(root/'release/licenses/sora2looseload-MIT.txt',a.out/'licenses/sora2looseload-MIT.txt')
 frameworks=json.loads((a.build/'SkyCharacterStudio.runtimeconfig.json').read_text())['runtimeOptions']['includedFrameworks']
 for framework in frameworks:
  package=Path.home()/'.nuget/packages'/(framework['name'].lower()+'.runtime.win-x64')/framework['version']

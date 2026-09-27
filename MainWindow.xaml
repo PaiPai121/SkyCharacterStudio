@@ -94,13 +94,22 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock x:Name="ScanHeadingText" Text="资源扫描" FontSize="16" FontWeight="Bold" Foreground="{StaticResource GoldBrush}" />
-                    <TextBlock x:Name="GameFolderText" Grid.Row="1" Text="游戏目录（扫描与安装目标）" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,12,0,2" />
+                    <Grid Grid.Row="1" Margin="0,12,0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="GameFolderText" Text="游戏目录" Foreground="{StaticResource MutedBrush}" FontSize="11" VerticalAlignment="Center" />
+                        <Border Grid.Column="1" Background="{StaticResource PanelDeepBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="5" Padding="7,3">
+                            <TextBlock x:Name="TargetGameText" Text="未选择游戏" Foreground="{StaticResource CyanBrush}" FontSize="11" FontWeight="SemiBold" />
+                        </Border>
+                    </Grid>
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="GamePathBox" />
+                        <TextBox x:Name="GamePathBox" TextChanged="GamePathBox_TextChanged" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                         <Button x:Name="BrowseButton" Grid.Column="1" Content="浏览…" Click="BrowseButton_Click" />
                     </Grid>
                     <StackPanel Grid.Row="3" Margin="0,12,0,0">
