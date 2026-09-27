@@ -1,12 +1,14 @@
 """Build a whitelisted, portable distribution without extracted game assets."""
-import argparse,hashlib,json,shutil,subprocess,sys
+import argparse,hashlib,json,os,shutil,subprocess,sys
 from pathlib import Path
 
-p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--native-dir',type=Path);p.add_argument('--version',default='0.1.3-beta');a=p.parse_args()
-root=Path(__file__).resolve().parents[1];mod=root.parent/'Sky1st-Scherazard-Mod'
+p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--native-dir',type=Path);p.add_argument('--version',required=True);a=p.parse_args()
+root=Path(__file__).resolve().parents[1];mod=Path(os.environ.get('SKY_STUDIO_TOOLCHAIN',root.parent/'Sky1st-Scherazard-Mod')).resolve()
 native_dir=(a.native_dir or (root/'release-stage'/'native')).resolve()
 if hashlib.sha256((root/'assets/character-ages.json').read_bytes()).hexdigest()!=(root/'release/verified-catalog.sha256').read_text().strip():
  raise SystemExit('Character catalog differs from reviewed release data; verify identities/ages before packaging')
+if hashlib.sha256((root/'assets/character-ages-2nd.json').read_bytes()).hexdigest()!=(root/'release/verified-catalog-2nd.sha256').read_text().strip():
+ raise SystemExit('Second Chapter character catalog differs from reviewed release data')
 if a.out.exists():raise SystemExit('Output already exists; choose a fresh staging directory')
 a.out.mkdir(parents=True)
 def copy(src,dest):
@@ -15,8 +17,8 @@ def copy(src,dest):
  else:shutil.copy2(src,dest)
 for file in a.build.iterdir():
  if file.is_file() and file.suffix in ('.exe','.dll','.json'):copy(file,a.out/file.name)
-for name in ['character-ages.json','supported-game.json','Sky1stCharacterStudio.ico']:copy(root/'assets'/name,a.out/'assets'/name)
-for name in ['auto_model.py','bone_profile.py','character_age.py','apply_shape.py','preview_dds.py','lib_fmtibvb.py']:copy(root/'tools'/name,a.out/'tools'/name)
+for name in ['character-ages.json','character-ages-2nd.json','supported-game.json','Sky1stCharacterStudio.ico']:copy(root/'assets'/name,a.out/'assets'/name)
+for name in ['auto_model.py','asset_codec.py','bone_profile.py','character_age.py','apply_shape.py','preview_dds.py','lib_fmtibvb.py']:copy(root/'tools'/name,a.out/'tools'/name)
 dat_builder=next((candidate for candidate in [native_dir/'build_summon_dat.exe',root/'tools'/'build_summon_dat.exe',mod/'tools'/'build_summon_dat.exe'] if candidate.exists()),None)
 if dat_builder is None:raise SystemExit('Missing build_summon_dat.exe; build native components before packaging')
 copy(dat_builder,a.out/'tools'/'build_summon_dat.exe')
@@ -28,11 +30,11 @@ copy(python/'DLLs',runtime/'DLLs')
 for file in (python/'Lib').iterdir():
  if file.name not in ['site-packages','test','tests','idlelib','tkinter','turtledemo','ensurepip','venv','__pycache__']:copy(file,runtime/'Lib'/file.name)
 sites=[Path(sys.prefix)/'Lib/site-packages',python/'Lib/site-packages']
-for module in ['numpy','PIL','zstandard','xxhash','blowfish.py']:
+for module in ['numpy','PIL','zstandard','xxhash','lz4','blowfish.py']:
  source=next(site/module for site in sites if (site/module).exists());copy(source,runtime/'Lib/site-packages'/module)
 for site in sites:
  for item in site.iterdir():
-  if item.name.lower().startswith(('numpy','pillow','zstandard','xxhash','blowfish')) and (item.name.endswith('.libs') or item.name.endswith('.dist-info')):
+  if item.name.lower().startswith(('numpy','pillow','zstandard','xxhash','lz4','blowfish')) and (item.name.endswith('.libs') or item.name.endswith('.dist-info')):
    copy(item,runtime/'Lib/site-packages'/item.name)
    direct=runtime/'Lib/site-packages'/item.name/'direct_url.json'
    if direct.exists():direct.unlink()

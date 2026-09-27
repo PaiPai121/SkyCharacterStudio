@@ -6,7 +6,8 @@ import numpy as np
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 import auto_model as m
-from character_age import CATALOG
+from character_age import CATALOGS
+CATALOG = CATALOGS['first']
 GAME=Path(r'D:\SteamLibrary\steamapps\common\Sora No Kiseki the 1st')
 
 def check(id):

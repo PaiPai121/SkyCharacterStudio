@@ -5,7 +5,9 @@ param(
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$SkipSmoke,
     [switch]$KeepStaging,
-    [string]$ArtifactDirectory
+    [string]$ArtifactDirectory,
+    [string]$ToolchainRoot,
+    [string]$GameRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,6 +95,7 @@ function Test-PortableDirectory {
     foreach ($relative in @(
         'Sky1stCharacterStudio.exe',
         'assets/character-ages.json',
+        'assets/character-ages-2nd.json',
         'assets/supported-game.json',
         'runtime/python/python.exe',
         'runtime/mod-template/xinput1_4.dll',
@@ -128,7 +131,14 @@ $iconOutput = Join-Path $root 'assets\Sky1stCharacterStudio.ico'
 $nativeSource = Join-Path $root 'runtime-source\tools'
 $datSource = Join-Path $root 'runtime-source\vendor\ed9_dat\ed9_dat.cpp'
 $nativeInclude = Join-Path $root 'runtime-source\vendor\ed9modmanager'
-$sibling = [IO.Path]::GetFullPath((Join-Path $root '..\Sky1st-Scherazard-Mod'))
+$sibling = if (-not [string]::IsNullOrWhiteSpace($ToolchainRoot)) {
+    [IO.Path]::GetFullPath($ToolchainRoot)
+} elseif (-not [string]::IsNullOrWhiteSpace($env:SKY_STUDIO_TOOLCHAIN)) {
+    [IO.Path]::GetFullPath($env:SKY_STUDIO_TOOLCHAIN)
+} else {
+    [IO.Path]::GetFullPath((Join-Path $root '..\Sky1st-Scherazard-Mod'))
+}
+$env:SKY_STUDIO_TOOLCHAIN = $sibling
 $python = Join-Path $sibling '.venv\Scripts\python.exe'
 $nugetPackages = if (-not [string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
     Join-Path $env:USERPROFILE '.nuget\packages'
@@ -227,14 +237,20 @@ try {
     ) '按白名单组装便携发布目录'
     $manifest = Test-PortableDirectory $portableDirectory $version
 
-    $gameRoot = ''
+    $gameRoot = if (-not [string]::IsNullOrWhiteSpace($GameRoot)) { [IO.Path]::GetFullPath($GameRoot) } else { '' }
     $gameDirectoryFile = Join-Path $root 'game-directory.txt'
-    if (Test-Path -LiteralPath $gameDirectoryFile) {
+    if ([string]::IsNullOrWhiteSpace($gameRoot) -and (Test-Path -LiteralPath $gameDirectoryFile)) {
         $gameRoot = (Get-Content -LiteralPath $gameDirectoryFile -Raw -Encoding UTF8).Trim()
     }
+    $smokeEdition = if (-not [string]::IsNullOrWhiteSpace($gameRoot) -and
+        (Test-Path -LiteralPath (Join-Path $gameRoot 'sora_1st.exe'))) { 'first' }
+        elseif (-not [string]::IsNullOrWhiteSpace($gameRoot) -and
+        (Test-Path -LiteralPath (Join-Path $gameRoot 'sora_2nd.exe'))) { 'second' }
+        else { '' }
     if (-not $SkipSmoke) {
-        if (-not [string]::IsNullOrWhiteSpace($gameRoot) -and (Test-Path -LiteralPath (Join-Path $gameRoot 'sora_1st.exe'))) {
-            $smokeProject = Join-Path $root 'smoke\PortableReleaseCheck.csproj'
+        if (-not [string]::IsNullOrWhiteSpace($smokeEdition)) {
+            $smokeName = if ($smokeEdition -eq 'second') { 'SecondChapterCheck' } else { 'PortableReleaseCheck' }
+            $smokeProject = Join-Path $root "smoke\$smokeName.csproj"
             Require-Path $smokeProject '便携发布离线检查项目'
             $smokeRestore = @('restore', $smokeProject, '--runtime', $RuntimeIdentifier, '--ignore-failed-sources', '-p:NuGetAudit=false')
             if (Test-Path -LiteralPath $nugetPackages) {
@@ -252,14 +268,16 @@ try {
             foreach ($directoryName in @('assets', 'runtime', 'tools')) {
                 Copy-Item -LiteralPath (Join-Path $portableDirectory $directoryName) -Destination (Join-Path $smokeDirectory $directoryName) -Recurse -Force
             }
-            $smokeExe = Join-Path $smokeDirectory 'PortableReleaseCheck.exe'
+            $smokeExe = Join-Path $smokeDirectory "$smokeName.exe"
             if (-not (Test-Path -LiteralPath $smokeExe)) {
                 throw "离线检查程序未生成：$smokeExe"
             }
             $previousGameEnv = [Environment]::GetEnvironmentVariable('SKY1ST_GAME_ROOT', 'Process')
+            $previousSecondGameEnv = [Environment]::GetEnvironmentVariable('SKY2ND_GAME_ROOT', 'Process')
             $previousSmokeEnv = [Environment]::GetEnvironmentVariable('SKY1ST_SMOKE_ROOT', 'Process')
             try {
                 $env:SKY1ST_GAME_ROOT = $gameRoot
+                $env:SKY2ND_GAME_ROOT = $gameRoot
                 $env:SKY1ST_SMOKE_ROOT = $smokeDirectory
                 Invoke-Checked $smokeExe @() '执行 WPF、导出、安装回滚离线检查'
             } finally {
@@ -267,6 +285,11 @@ try {
                     Remove-Item Env:SKY1ST_GAME_ROOT -ErrorAction SilentlyContinue
                 } else {
                     $env:SKY1ST_GAME_ROOT = $previousGameEnv
+                }
+                if ($null -eq $previousSecondGameEnv) {
+                    Remove-Item Env:SKY2ND_GAME_ROOT -ErrorAction SilentlyContinue
+                } else {
+                    $env:SKY2ND_GAME_ROOT = $previousSecondGameEnv
                 }
                 if ($null -eq $previousSmokeEnv) {
                     Remove-Item Env:SKY1ST_SMOKE_ROOT -ErrorAction SilentlyContinue
@@ -314,12 +337,11 @@ try {
         if (-not $launcher.HasExited) { Stop-Process -Id $launcher.Id -Force }
     }
 
-    if (-not $SkipSmoke -and -not [string]::IsNullOrWhiteSpace($gameRoot) -and
-        (Test-Path -LiteralPath (Join-Path $gameRoot 'sora_1st.exe'))) {
+    if (-not $SkipSmoke -and -not [string]::IsNullOrWhiteSpace($smokeEdition)) {
         Write-Host "`n==> 从独立解压目录执行完整便携流程"
         $cleanSmokeDirectory = Join-Path $cleanDirectory '_smoke'
         $cleanSmokeBuild = @(
-            'build', (Join-Path $root 'smoke\PortableReleaseCheck.csproj'),
+            'build', (Join-Path $root "smoke\$smokeName.csproj"),
             '--configuration', $Configuration, '--no-restore',
             ('-p:StudioReference=' + (Join-Path $cleanDirectory 'Sky1stCharacterStudio.dll')),
             ('-p:OutputPath=' + $cleanSmokeDirectory)
@@ -329,14 +351,18 @@ try {
             Copy-Item -LiteralPath (Join-Path $cleanDirectory $directoryName) -Destination (Join-Path $cleanSmokeDirectory $directoryName) -Recurse -Force
         }
         $previousGameEnv = [Environment]::GetEnvironmentVariable('SKY1ST_GAME_ROOT', 'Process')
+        $previousSecondGameEnv = [Environment]::GetEnvironmentVariable('SKY2ND_GAME_ROOT', 'Process')
         $previousSmokeEnv = [Environment]::GetEnvironmentVariable('SKY1ST_SMOKE_ROOT', 'Process')
         try {
             $env:SKY1ST_GAME_ROOT = $gameRoot
+            $env:SKY2ND_GAME_ROOT = $gameRoot
             $env:SKY1ST_SMOKE_ROOT = $cleanSmokeDirectory
-            Invoke-Checked (Join-Path $cleanSmokeDirectory 'PortableReleaseCheck.exe') @() '验证最终 ZIP 的模型生成、报错、安装和撤销'
+            Invoke-Checked (Join-Path $cleanSmokeDirectory "$smokeName.exe") @() '验证最终 ZIP 的模型生成与版本隔离'
         } finally {
             if ($null -eq $previousGameEnv) { Remove-Item Env:SKY1ST_GAME_ROOT -ErrorAction SilentlyContinue }
             else { $env:SKY1ST_GAME_ROOT = $previousGameEnv }
+            if ($null -eq $previousSecondGameEnv) { Remove-Item Env:SKY2ND_GAME_ROOT -ErrorAction SilentlyContinue }
+            else { $env:SKY2ND_GAME_ROOT = $previousSecondGameEnv }
             if ($null -eq $previousSmokeEnv) { Remove-Item Env:SKY1ST_SMOKE_ROOT -ErrorAction SilentlyContinue }
             else { $env:SKY1ST_SMOKE_ROOT = $previousSmokeEnv }
         }

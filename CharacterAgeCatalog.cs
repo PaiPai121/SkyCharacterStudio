@@ -18,15 +18,20 @@ public sealed class CharacterAgeInfo
 
 public static class CharacterAgeCatalog
 {
-    private static readonly Lazy<(bool Available, Dictionary<string, CharacterAgeInfo> Records)> Catalog = new(() => {
-        var path = Path.Combine(AppContext.BaseDirectory, "assets", "character-ages.json");
+    private static (bool Available, Dictionary<string, CharacterAgeInfo> Records) Load(string fileName) {
+        var path = Path.Combine(AppContext.BaseDirectory, "assets", fileName);
         if (!File.Exists(path)) return (false, new());
         var records = JsonSerializer.Deserialize<Dictionary<string, CharacterAgeInfo>>(File.ReadAllText(path)) ?? new();
         return (true, records);
-    });
-    public static CharacterAgeInfo Get(string modelId, bool isBaseGameCharacter = false)
+    }
+    private static readonly Lazy<(bool Available, Dictionary<string, CharacterAgeInfo> Records)> FirstCatalog =
+        new(() => Load("character-ages.json"));
+    private static readonly Lazy<(bool Available, Dictionary<string, CharacterAgeInfo> Records)> SecondCatalog =
+        new(() => Load("character-ages-2nd.json"));
+
+    public static CharacterAgeInfo Get(string modelId, bool isBaseGameCharacter = false, GameEdition edition = GameEdition.First)
     {
-        var catalog = Catalog.Value;
+        var catalog = edition == GameEdition.Second ? SecondCatalog.Value : FirstCatalog.Value;
         if (catalog.Records.TryGetValue(modelId, out var info)) return info;
         return new();
     }

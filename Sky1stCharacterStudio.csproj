@@ -9,7 +9,7 @@
     <RootNamespace>Sky1stCharacterStudio</RootNamespace>
     <Platforms>AnyCPU</Platforms>
     <NuGetAudit>false</NuGetAudit>
-    <Version>0.2.2-beta</Version>
+    <Version>0.3.0-beta</Version>
     <ApplicationIcon>assets\Sky1stCharacterStudio.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);release-stage/**;release-artifacts/**</DefaultItemExcludes>
   </PropertyGroup>
@@ -20,10 +20,12 @@
     <None Include="tools\preview_dds.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\bone_profile.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\character_age.py" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="tools\build_summon_dat.exe" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="tools\build_summon_dat.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('tools\build_summon_dat.exe')" />
     <None Include="assets\character-ages.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\character-ages-2nd.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="assets\supported-game.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\auto_model.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="tools\asset_codec.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\apply_shape.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\lib_fmtibvb.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="assets\previews\**\*" CopyToOutputDirectory="PreserveNewest" />

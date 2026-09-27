@@ -27,10 +27,10 @@ public sealed class PreviewService
         CancellationToken cancellationToken,
         bool adjusted = false)
     {
-        var seed = FindSeedPreview(record.ModelId, adjusted);
+        var seed = FindSeedPreview(record.Edition, record.ModelId, adjusted);
         if (seed is not null)
         {
-            var originalSeed = adjusted ? FindSeedPreview(record.ModelId, adjusted: false) : null;
+            var originalSeed = adjusted ? FindSeedPreview(record.Edition, record.ModelId, adjusted: false) : null;
             if (adjusted && originalSeed is not null
                 && !string.Equals(Path.GetFullPath(seed), Path.GetFullPath(originalSeed), StringComparison.OrdinalIgnoreCase))
                 return CreateComparisonBitmap(originalSeed, seed);
@@ -41,8 +41,10 @@ public sealed class PreviewService
         {
             try
             {
-                var ddsPath = System.IO.Path.Combine(_cacheRoot, record.ModelId + ".dds");
-                var pngPath = System.IO.Path.Combine(_cacheRoot, record.ModelId + ".png");
+                var editionCache = System.IO.Path.Combine(_cacheRoot, record.Edition.ToString());
+                Directory.CreateDirectory(editionCache);
+                var ddsPath = System.IO.Path.Combine(editionCache, record.ModelId + ".dds");
+                var pngPath = System.IO.Path.Combine(editionCache, record.ModelId + ".png");
                 if (!File.Exists(ddsPath))
                     await File.WriteAllBytesAsync(ddsPath, imageArchive.ReadEntry(record.PreviewEntry), cancellationToken);
                 if (!File.Exists(pngPath) || File.GetLastWriteTimeUtc(pngPath) < File.GetLastWriteTimeUtc(ddsPath))
@@ -59,8 +61,9 @@ public sealed class PreviewService
         return CreatePlaceholder(record.ModelId, record.DisplayName);
     }
 
-    private string? FindSeedPreview(string modelId, bool adjusted)
+    private string? FindSeedPreview(GameEdition edition, string modelId, bool adjusted)
     {
+        if (edition == GameEdition.Second) return null;
         var candidates = adjusted
             ? new[]
             {
@@ -104,9 +107,12 @@ public sealed class PreviewService
 
     internal static string ResolvePython()
     {
+        var toolchain = Environment.GetEnvironmentVariable("SKY_STUDIO_TOOLCHAIN");
         var candidates = new[]
         {
             System.IO.Path.Combine(AppContext.BaseDirectory, "runtime", "python", "python.exe"),
+            Environment.GetEnvironmentVariable("SKY_STUDIO_PYTHON"),
+            string.IsNullOrWhiteSpace(toolchain) ? null : System.IO.Path.Combine(toolchain, ".venv", "Scripts", "python.exe"),
             System.IO.Path.Combine(AppContext.BaseDirectory, ".venv", "Scripts", "python.exe"),
             FindFileUpwards(".venv", "Scripts", "python.exe"),
             FindFileUpwards("..", "Sky1st-Scherazard-Mod", ".venv", "Scripts", "python.exe"),
@@ -251,11 +257,13 @@ public static class ExportService
         CancellationToken cancellationToken, string mode = "width", bool enableSummon = true)
     {
         strength = Math.Clamp(strength, -500, 1000);
-        var exportRoot = System.IO.Path.Combine(projectRoot, "exports", $"{record.ModelId}_{mode}_{strength:000}");
+        var exportRoot = record.Edition == GameEdition.Second
+            ? System.IO.Path.Combine(projectRoot, "exports", "second", $"{record.ModelId}_{mode}_{strength:000}")
+            : System.IO.Path.Combine(projectRoot, "exports", $"{record.ModelId}_{mode}_{strength:000}");
         var modelRoot = System.IO.Path.Combine(exportRoot, "asset", "common", "model");
         Directory.CreateDirectory(modelRoot);
         var modelPath = System.IO.Path.Combine(modelRoot, record.ModelFileName);
-        var game=Directory.GetParent(Directory.GetParent(Directory.GetParent(modelArchive.Path)!.FullName)!.FullName)!.FullName;
+        var game=GameEditionInfo.RootFromModelArchive(modelArchive.Path);
         await AutoModelService.Run(game,record.ModelId,mode,modelRoot,strength,record.IsBaseGameCharacter);
         var shapeApplied=true;
         string helperMessage = UiText.T(mode.Equals("chest", StringComparison.OrdinalIgnoreCase)

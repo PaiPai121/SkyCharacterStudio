@@ -22,11 +22,12 @@ public sealed class CharacterRecord
     public PacEntry? PreviewEntry { get; init; }
     public bool IsSupportedShapeEdit { get; init; }
     public bool IsBaseGameCharacter { get; init; }
+    public GameEdition Edition { get; init; } = GameEdition.First;
 
     public string ModelFileName => $"{ModelId}.mdl";
     public string ArchiveSizeText => $"{ModelEntry.Size / 1024d / 1024d:0.00} MB";
     public string PreviewText => PreviewEntry is null ? UiText.T("portrait.missing") : UiText.T("portrait.found");
-    public CharacterAgeInfo AgeInfo => CharacterAgeCatalog.Get(ModelId, IsBaseGameCharacter);
+    public CharacterAgeInfo AgeInfo => CharacterAgeCatalog.Get(ModelId, IsBaseGameCharacter, Edition);
     public bool AdultShapeEligible => AgeInfo.IsAdult;
     public string SupportText => UiText.T("support");
 

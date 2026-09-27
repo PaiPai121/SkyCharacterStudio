@@ -10,6 +10,8 @@ public static class AutoModelService {
    var helper=PreviewService.FindFileUpwards("tools","auto_model.py") ?? throw new FileNotFoundException(UiText.T("error.no.model"));
    var start=new ProcessStartInfo(PreviewService.ResolvePython()) { UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,StandardOutputEncoding=Encoding.UTF8,StandardErrorEncoding=Encoding.UTF8 };
    foreach(var arg in new[]{helper,"--game",game,"--model",model,"--mode",mode,"--out",output}) start.ArgumentList.Add(arg);
+   start.ArgumentList.Add("--edition");
+   start.ArgumentList.Add(GameEditionInfo.Detect(game) == GameEdition.Second ? "second" : "first");
    if(isBaseGameCharacter)start.ArgumentList.Add("--base-game-character");
    if(strength.HasValue) {start.ArgumentList.Add("--export");start.ArgumentList.Add("--strength");start.ArgumentList.Add(strength.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));}
    using var p=Process.Start(start) ?? throw new IOException(UiText.T("error.processor.start"));

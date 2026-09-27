@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
@@ -20,6 +21,7 @@ public partial class MainWindow : Window
     private CharacterRecord? _selectedCharacter;
     private int _previewGeneration;
     private bool _isScanning;
+    private GameEdition _edition = GameEdition.First;
     private bool _showAdjustedPreview;
     private bool _applyingLanguage;
     private string? _statusKey = "status.ready";
@@ -34,7 +36,12 @@ public partial class MainWindow : Window
         _previewService = new PreviewService(_projectRoot);
         GamePathBox.Text = FindDefaultGameRoot();
         var savedPath = Path.Combine(_projectRoot, "game-directory.txt");
-        if (File.Exists(savedPath)) GamePathBox.Text = File.ReadAllText(savedPath).Trim();
+        if (File.Exists(savedPath))
+        {
+            var savedGame = File.ReadAllText(savedPath).Trim();
+            try { GamePathBox.Text = GameInstaller.ValidateGameRoot(savedGame); }
+            catch (Exception error) when (error is ArgumentException or IOException or InvalidOperationException) { }
+        }
         CharacterBox.ItemsSource = _visibleCharacters;
         ContourPreview.Strength = ShapeSlider.Value;
         _applyingLanguage = true;
@@ -80,8 +87,8 @@ public partial class MainWindow : Window
         StrengthHelpText.Text = UiText.T("strength.help");
         ResetShapeButton.Content = UiText.T("reset");
         ResetShapeButton.ToolTip = UiText.T("reset.tooltip");
-        InstallButton.Content = UiText.T("install");
-        InstallButton.ToolTip = UiText.T("install.tooltip");
+        InstallButton.Content = UiText.T(_edition == GameEdition.Second ? "export.only" : "install");
+        InstallButton.ToolTip = UiText.T(_edition == GameEdition.Second ? "export.only.tooltip" : "install.tooltip");
         SummonTestingBox.Content = UiText.T("summon");
         RestoreButton.Content = UiText.T("restore");
         if (_statusKey is not null)
@@ -113,6 +120,11 @@ public partial class MainWindow : Window
     {
         if (_isScanning) return;
         _isScanning = true;
+        ++_previewGeneration;
+        _modelReady = false;
+        _selectedCharacter = null;
+        LiveView.Visibility = Visibility.Collapsed;
+        PortraitImage.Source = null;
         SetActionState(false);
         var root = GamePathBox.Text.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         if (string.IsNullOrWhiteSpace(root))
@@ -131,6 +143,8 @@ public partial class MainWindow : Window
 
         try
         {
+            root = GameInstaller.ValidateGameRoot(root);
+            var edition = GameEditionInfo.Detect(root);
             var result = await Task.Run(() =>
             {
                 var model = PacArchive.Load(modelPath);
@@ -141,6 +155,10 @@ public partial class MainWindow : Window
             });
             _modelArchive = result.model;
             _imageArchive = result.image;
+            _edition = edition;
+            if (edition == GameEdition.Second) SummonTestingBox.IsChecked = false;
+            InstallButton.Content = UiText.T(edition == GameEdition.Second ? "export.only" : "install");
+            InstallButton.ToolTip = UiText.T(edition == GameEdition.Second ? "export.only.tooltip" : "install.tooltip");
             _allCharacters = result.characters;
             File.WriteAllText(Path.Combine(_projectRoot,"game-directory.txt"), root);
             ApplyFilter(selectPreferred: true);
@@ -216,8 +234,11 @@ public partial class MainWindow : Window
         _modelReady=false; LiveView.Visibility=Visibility.Collapsed;
         PortraitImage.Source=null; SetActionState(false); UpdateCharacterDetails(record);
         PortraitStatusText.Text=UiText.F("status.loading.model", record.LocalizedName);
-        var directory=Path.Combine(_projectRoot,"cache","models",record.ModelId,mode);
+        var directory=Path.Combine(_projectRoot,"cache","models",record.Edition.ToString(),record.ModelId,mode);
         try {
+            var portrait = await _previewService.LoadAsync(record, _imageArchive, CancellationToken.None);
+            if(generation!=_previewGeneration)return;
+            PortraitImage.Source=portrait;
             await AutoModelService.Run(GamePathBox.Text,record.ModelId,mode,directory,isBaseGameCharacter:record.IsBaseGameCharacter);
             if(generation!=_previewGeneration)return;
             LiveView.Load(directory,"model.json"); LiveView.Frame(true);
@@ -308,7 +329,7 @@ public partial class MainWindow : Window
             try { GameInstaller.ValidateSupportedGame(target); }
             catch (Exception error) when (error is InvalidOperationException or FileNotFoundException)
             { installBlocker = error.Message; }
-            if (GameInstaller.IsGameRunning()) installBlocker = UiText.T("error.game.running");
+            if (GameInstaller.IsGameRunning(target)) installBlocker = UiText.T("error.game.running");
             var testSummon=SummonTestingBox.IsChecked==true;
             var expected = Path.Combine(target,"pac","steam","asset_common_model.pac");
             if (_modelArchive is null || !Path.GetFullPath(_modelArchive.Path).Equals(expected,StringComparison.OrdinalIgnoreCase))
@@ -364,9 +385,9 @@ public partial class MainWindow : Window
     private void SetActionState(bool enabled)
     {
         ScanButton_ClickEnabled(enabled);
-        if(RestoreButton is not null)RestoreButton.IsEnabled=enabled;
+        if(RestoreButton is not null)RestoreButton.IsEnabled=enabled && _edition == GameEdition.First;
         if(ResetShapeButton is not null)ResetShapeButton.IsEnabled=enabled && _modelReady;
-        if(SummonTestingBox is not null)SummonTestingBox.IsEnabled=enabled;
+        if(SummonTestingBox is not null)SummonTestingBox.IsEnabled=enabled && _edition == GameEdition.First;
         BrowseButton.IsEnabled = enabled;
         GamePathBox.IsEnabled = enabled;
         InstallButton.IsEnabled = enabled && _modelReady;
@@ -415,11 +436,40 @@ public partial class MainWindow : Window
 
     private static string FindDefaultGameRoot()
     {
-        var candidates = new List<string>
+        var steamRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam", "steamapps", "common", "Sora No Kiseki the 1st"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Steam", "steamapps", "common", "Sora No Kiseki the 1st")
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Steam")
         };
-        return candidates.FirstOrDefault(path => File.Exists(Path.Combine(path, "pac", "steam", "asset_common_model.pac"))) ?? "";
+        try
+        {
+            if (Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) is string registered
+                && Path.IsPathFullyQualified(registered)) steamRoots.Add(registered);
+        }
+        catch (Exception error) when (error is ArgumentException or IOException or System.Security.SecurityException) { }
+        var libraries = new HashSet<string>(steamRoots, StringComparer.OrdinalIgnoreCase);
+        foreach (var steam in steamRoots)
+        {
+            var vdf = Path.Combine(steam, "steamapps", "libraryfolders.vdf");
+            if (!File.Exists(vdf)) continue;
+            try
+            {
+                foreach (Match match in Regex.Matches(File.ReadAllText(vdf), "\"path\"\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase))
+                {
+                    var library = match.Groups[1].Value.Replace(@"\\", @"\");
+                    if (Path.IsPathFullyQualified(library)) libraries.Add(library);
+                }
+            }
+            catch (Exception error) when (error is ArgumentException or IOException or UnauthorizedAccessException) { }
+        }
+        foreach (var library in libraries)
+        foreach (var name in new[] { "Sora No Kiseki the 1st", "Trails in the Sky 2nd Chapter" })
+        {
+            var candidate = Path.Combine(library, "steamapps", "common", name);
+            if (File.Exists(Path.Combine(candidate, "pac", "steam", "asset_common_model.pac"))
+                && (File.Exists(Path.Combine(candidate, "sora_1st.exe")) || File.Exists(Path.Combine(candidate, "sora_2nd.exe"))))
+                return candidate;
+        }
+        return "";
     }
 }

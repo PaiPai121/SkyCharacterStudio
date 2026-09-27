@@ -10,15 +10,17 @@ public static class GameInstaller
     public static string ValidateGameRoot(string path)
     {
         var root = Path.GetFullPath(path.Trim());
-        if (!File.Exists(Path.Combine(root, "sora_1st.exe")) ||
-            !File.Exists(Path.Combine(root, "pac", "steam", "asset_common_model.pac")))
-            throw new InvalidOperationException(UiText.T("error.invalid.game.root"));
+        GameEditionInfo.Detect(root);
         return root;
     }
 
     public static void ValidateSupportedGame(string gameRoot)
     {
         gameRoot = ValidateGameRoot(gameRoot);
+        var edition = GameEditionInfo.Detect(gameRoot);
+        if (edition == GameEdition.Second)
+            throw new InvalidOperationException(UiText.T("error.second.install.unavailable"));
+        var executablePath = Path.Combine(gameRoot, GameEditionInfo.ExecutableName(edition));
         var compatibility = Path.Combine(AppContext.BaseDirectory, "assets", "supported-game.json");
         if (!File.Exists(compatibility))
             throw new FileNotFoundException(UiText.T("error.compatibility.missing"), compatibility);
@@ -26,20 +28,27 @@ public static class GameInstaller
         var accepted = supported.RootElement.GetProperty("builds").EnumerateArray()
             .Select(build => build.GetProperty("sha256").GetString())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        using var executable = File.OpenRead(Path.Combine(gameRoot, "sora_1st.exe"));
+        using var executable = File.OpenRead(executablePath);
         var actual = Convert.ToHexString(SHA256.HashData(executable));
         if (!accepted.Contains(actual))
         {
-            var version = FileVersionInfo.GetVersionInfo(Path.Combine(gameRoot, "sora_1st.exe")).FileVersion ?? "?";
+            var version = FileVersionInfo.GetVersionInfo(executablePath).FileVersion ?? "?";
             throw new InvalidOperationException(UiText.F("error.unsupported.version", version));
         }
     }
 
-    public static bool IsGameRunning()
+    public static bool IsGameRunning(string? gameRoot = null)
     {
-        var processes = Process.GetProcessesByName("sora_1st");
-        try { return processes.Length > 0; }
-        finally { foreach (var process in processes) process.Dispose(); }
+        GameEdition? edition = gameRoot is null ? null : GameEditionInfo.Detect(gameRoot);
+        var names = edition is null ? new[] { "sora_1st", "sora_2nd" }
+            : new[] { Path.GetFileNameWithoutExtension(GameEditionInfo.ExecutableName(edition.Value)) };
+        foreach (var name in names)
+        {
+            var processes = Process.GetProcessesByName(name);
+            try { if (processes.Length > 0) return true; }
+            finally { foreach (var process in processes) process.Dispose(); }
+        }
+        return false;
     }
 
     private static string SafePath(string root, string relative)
@@ -59,7 +68,7 @@ public static class GameInstaller
     public static string Install(string package, string gameRoot, string backupRoot, Func<bool>? runningCheck = null)
     {
         gameRoot = ValidateGameRoot(gameRoot);
-        runningCheck ??= IsGameRunning;
+        runningCheck ??= () => IsGameRunning(gameRoot);
         if (runningCheck()) throw new InvalidOperationException(UiText.T("error.game.running"));
         ValidateSupportedGame(gameRoot);
         package = Path.GetFullPath(package);
@@ -120,7 +129,7 @@ public static class GameInstaller
 
     public static string RestoreLatest(string gameRoot,string backupRoot,Func<bool>? runningCheck=null)
     {
-        gameRoot=ValidateGameRoot(gameRoot);runningCheck??=IsGameRunning;
+        gameRoot=ValidateGameRoot(gameRoot);runningCheck??=()=>IsGameRunning(gameRoot);
         if(runningCheck())throw new InvalidOperationException(UiText.T("error.restore.running"));
         if(!Directory.Exists(backupRoot))throw new IOException(UiText.T("error.no.backup"));
         foreach(var file in Directory.GetFiles(backupRoot,"installation.json",SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc)) {

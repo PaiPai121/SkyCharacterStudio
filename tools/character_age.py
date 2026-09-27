@@ -2,15 +2,19 @@
 import json
 from pathlib import Path
 
-CATALOG_PATH = Path(__file__).resolve().parents[1] / 'assets' / 'character-ages.json'
-CATALOG = json.loads(CATALOG_PATH.read_text(encoding='utf-8'))
+ASSETS = Path(__file__).resolve().parents[1] / 'assets'
+CATALOGS = {
+    'first': json.loads((ASSETS / 'character-ages.json').read_text(encoding='utf-8')),
+    'second': json.loads((ASSETS / 'character-ages-2nd.json').read_text(encoding='utf-8')),
+}
 
-def age_info(model_id, is_base_game_character=False):
-    if model_id in CATALOG:
-        return CATALOG[model_id]
+def age_info(model_id, is_base_game_character=False, edition='first'):
+    catalog = CATALOGS[edition]
+    if model_id in catalog:
+        return catalog[model_id]
     return {'status': 'unknown', 'age': None,
         'basis': '尚无可核对的本作年龄资料', 'source': ''}
 
-def adult_eligible(model_id, is_base_game_character=False):
-    info = age_info(model_id, is_base_game_character)
+def adult_eligible(model_id, is_base_game_character=False, edition='first'):
+    info = age_info(model_id, is_base_game_character, edition)
     return info['status'] == 'adult' and (info.get('age') is None or info['age'] >= 18)

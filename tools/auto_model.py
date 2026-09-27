@@ -1,25 +1,34 @@
-"""Automatic MDL v4 preview/export. No character-specific mesh numbers or offsets."""
-import argparse, hashlib, io, json, struct, sys
+"""Automatic MDL v4/v5 preview/export. No character-specific mesh numbers or offsets."""
+import argparse, hashlib, io, json, os, struct, sys
 from pathlib import Path
 import numpy as np
 from PIL import Image
 ROOT=Path(__file__).resolve().parents[1]
-MOD=ROOT/'tools' if (ROOT/'tools/vendor').exists() else next((p/'Sky1st-Scherazard-Mod' for p in [ROOT.parent,ROOT.parent.parent] if (p/'Sky1st-Scherazard-Mod/vendor').exists()), None)
+toolchain_override=Path(os.environ['SKY_STUDIO_TOOLCHAIN']) if os.environ.get('SKY_STUDIO_TOOLCHAIN') else None
+MOD=ROOT/'tools' if (ROOT/'tools/vendor').exists() else next((p for p in [toolchain_override,ROOT.parent/'Sky1st-Scherazard-Mod',ROOT.parent.parent/'Sky1st-Scherazard-Mod'] if p is not None and (p/'vendor').exists() and (p/'scripts/pac.py').exists()), None)
 if MOD is None: raise RuntimeError('Missing MDL parser dependency')
 sys.path.insert(0,str(MOD/'vendor'));sys.path.insert(0,str(MOD/'scripts'))
 import kuro_mdl_export_meshes as mdl
 from pac import entries
+from asset_codec import decode_payload
 from apply_shape import sections
 from bone_profile import detect_chest
 # Eligibility metadata is separate from geometry detection. Unknown ages do not enable chest editing.
 from character_age import age_info, adult_eligible
+
+def detect_edition(game):
+    first=(game/'sora_1st.exe').is_file()
+    second=(game/'sora_2nd.exe').is_file()
+    if first==second: raise ValueError('Expected one supported Sky game executable in the selected directory')
+    return 'second' if second else 'first'
 def read_entry(pac, name):
     e=next(e for e in entries(pac) if e['name']==name)
     with pac.open('rb') as f: f.seek(e['offset']);return f.read(e['size'])
 def prepare(game, model_id):
     raw=read_entry(game/'pac/steam/asset_common_model.pac',f'asset/common/model/{model_id}.mdl')
     raw=mdl.decryptCLE(raw)
-    if raw[:4]!=b'MDL ' or struct.unpack_from('<I',raw,4)[0]!=4: raise ValueError('Only MDL v4 editing is supported')
+    if raw[:4]!=b'MDL ' or struct.unpack_from('<I',raw,4)[0] not in (4,5):
+        raise ValueError('Only MDL v4/v5 editing is supported')
     mats=mdl.obtain_material_data(raw); data=mdl.obtain_mesh_data(raw,mats)
     if not data: raise ValueError('Model has no editable meshes')
     return raw,mats,data
@@ -68,14 +77,19 @@ def _chest_region(pair, nodes, center, height):
         'height':height,
     }
 
-def profile(data, model_id, mode, is_base_game_character=False):
+def profile(data, model_id, mode, is_base_game_character=False, edition='first'):
     nodes={n['name']:np.array(n['matrix'][3][:3]) for g in data['mesh_blocks'] for n in g.get('nodes',[])}
     allpos=np.concatenate([np.array(next(b['Buffer'] for b in p['vb'] if b['SemanticName']=='POSITION')) for g in data['mesh_buffers'] for p in g])
     height=float(np.ptp(allpos[:,1]));center=float((allpos[:,0].min()+allpos[:,0].max())/2)
-    if height<=0 or not np.isfinite(allpos).all(): raise ValueError('Invalid model bounds')
+    if not np.isfinite(allpos).all(): raise ValueError('Invalid model bounds')
+    if height<=1e-8 and mode=='width':
+        # Some chr-prefixed archive entries are flat planes. Width editing is
+        # still well-defined for them; only the chest region needs Y height.
+        height=float(np.max(np.ptp(allpos,axis=0)))
+    if height<=1e-8: raise ValueError('Invalid model bounds')
     regions=[]
     if mode=='chest':
-        if not adult_eligible(model_id,is_base_game_character): raise ValueError('Chest editing requires adult character metadata: '+age_info(model_id,is_base_game_character)['status'])
+        if not adult_eligible(model_id,is_base_game_character,edition): raise ValueError('Chest editing requires adult character metadata: '+age_info(model_id,is_base_game_character,edition)['status'])
         detection=detect_chest(data)
         if detection['status']!='recognized':raise ValueError(detection['detail'])
         for pair in detection['pairs']:
@@ -271,7 +285,9 @@ def deform(points, strength, mode, params, masks=None):
 
 def run(a):
     is_base_game_character=getattr(a,'base_game_character',False)
-    raw,mats,data=prepare(a.game,a.model);params=profile(data,a.model,a.mode,is_base_game_character)
+    edition=getattr(a,'edition',None) or detect_edition(a.game)
+    if edition!=detect_edition(a.game): raise ValueError('Requested edition does not match the selected game executable')
+    raw,mats,data=prepare(a.game,a.model);params=profile(data,a.model,a.mode,is_base_game_character,edition)
     a.out.mkdir(parents=True,exist_ok=True);result=[];missing=set();patched=bytearray(raw);start,size=sections(raw)[4]
     textures={}; imagepac=a.game/'pac/steam/image.pac'
     if not a.export:
@@ -314,7 +330,11 @@ def run(a):
             if e:
                 dest=a.out/png
                 if not dest.exists():
-                    with imagepac.open('rb') as f:f.seek(e['offset']);img=Image.open(io.BytesIO(mdl.decryptCLE(f.read(e['size']))));img.save(dest)
+                    with imagepac.open('rb') as f:
+                        f.seek(e['offset'])
+                        texture=decode_payload(mdl.decryptCLE(f.read(e['size'])))
+                    with Image.open(io.BytesIO(texture)) as img:
+                        img.save(dest)
             else:
                 png=''
                 if texname:missing.add(texname)
@@ -326,8 +346,8 @@ def run(a):
         (a.out/'report.json').write_text(json.dumps(dict(model=a.model,mode=a.mode,strength=a.strength,source_sha256=hashlib.sha256(raw).hexdigest(),output_sha256=hashlib.sha256(patched).hexdigest(),same_size=len(raw)==len(patched))))
     else:
         (a.out/'model.json').write_text(json.dumps(result,separators=(',',':')))
-        (a.out/'model-meta.json').write_text(json.dumps({'missing_textures':sorted(missing),'chest_detection':detect_chest(data),'adult_eligible':adult_eligible(a.model,is_base_game_character),'age_info':age_info(a.model,is_base_game_character),'deformation_gain':params[3]}))
+        (a.out/'model-meta.json').write_text(json.dumps({'missing_textures':sorted(missing),'chest_detection':detect_chest(data),'adult_eligible':adult_eligible(a.model,is_base_game_character,edition),'age_info':age_info(a.model,is_base_game_character,edition),'deformation_gain':params[3]}))
     print(json.dumps({'ok':True,'model':a.model,'mode':a.mode,'height':params[2]}))
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--game',type=Path,required=True);p.add_argument('--model',required=True);p.add_argument('--mode',choices=['width','chest'],default='width');p.add_argument('--strength',type=int,default=0);p.add_argument('--out',type=Path,required=True);p.add_argument('--export',action='store_true');p.add_argument('--base-game-character',action='store_true')
+    p=argparse.ArgumentParser();p.add_argument('--game',type=Path,required=True);p.add_argument('--model',required=True);p.add_argument('--mode',choices=['width','chest'],default='width');p.add_argument('--strength',type=int,default=0);p.add_argument('--out',type=Path,required=True);p.add_argument('--export',action='store_true');p.add_argument('--base-game-character',action='store_true');p.add_argument('--edition',choices=['first','second'])
     run(p.parse_args())

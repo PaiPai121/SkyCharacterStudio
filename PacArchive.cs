@@ -141,6 +141,7 @@ public static class CharacterScanner
         var imageEntries = imageArchive?.Entries ?? Array.Empty<PacEntry>();
         var records = new List<CharacterRecord>();
         var names=CharacterNames.Load(System.IO.Path.GetDirectoryName(modelArchive.Path)!);
+        var edition = GameEditionInfo.Detect(GameEditionInfo.RootFromModelArchive(modelArchive.Path));
         foreach (var entry in modelArchive.Entries)
         {
             var slash = entry.Name.LastIndexOf('/');
@@ -162,7 +163,8 @@ public static class CharacterScanner
                 ModelInfoEntry = info,
                 PreviewEntry = face,
                 IsSupportedShapeEdit = true,
-                IsBaseGameCharacter = true
+                IsBaseGameCharacter = true,
+                Edition = edition
             });
         }
         return records.OrderBy(x => names.ContainsKey(x.ModelId) ? 0 : 1)

@@ -1,3 +1,10 @@
+# 0.3.0 beta
+
+- Added 2nd Chapter FPAC scanning, MDL v4/v5 preview and width export, including LZ4 image decoding and flat chr-prefixed models.
+- Added a separate 2nd Chapter adult eligibility catalog and per-game model, portrait, and export caches. Unknown ages remain ineligible for chest editing.
+- Kept 2nd Chapter installation and F8 disabled while the game-specific loader is unverified. Its button saves an offline MDL under `exports/second` and shows the output path.
+- Added an installed-game MDL round-trip audit and an isolated WPF scan, preview, portrait, export, and installer-gate check. Neither writes to the actual game.
+
 # 0.2.2 beta
 
 - Made F8 test summon optional throughout model generation: a missing script or summon builder failure now disables the summon and installs the generated model normally on supported game builds.

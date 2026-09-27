@@ -19,9 +19,9 @@ public static class UiText
     private static readonly Dictionary<string, (string Chinese, string English)> Texts =
         new(StringComparer.Ordinal)
         {
-            ["window.title"] = ("空之轨迹 the 1st · 角色模型工作台", "Trails in the Sky the 1st · Character Model Studio"),
+            ["window.title"] = ("空之轨迹 · 角色模型工作台", "Trails in the Sky · Character Model Studio"),
             ["app.heading"] = ("游击士协会 · 角色模型工作台", "Bracer Guild · Character Model Studio"),
-            ["app.subtitle"] = ("选择游戏目录，调整模型，一键导出并安装。安装会备份旧文件，原始 PAC 保持只读。", "Choose the game folder, adjust a model, then export and install it. Existing files are backed up; original PAC archives stay read-only."),
+            ["app.subtitle"] = ("选择游戏目录并调整模型。已验证版本可备份并安装；原始 PAC 保持只读。", "Choose a game folder and adjust a model. Verified builds can be backed up and installed; original PAC archives stay read-only."),
             ["offline"] = ("离线模式", "Offline mode"),
             ["scan.panel"] = ("资源扫描", "Resource scan"),
             ["game.folder"] = ("游戏目录（扫描与安装目标）", "Game folder (scan and install target)"),
@@ -48,10 +48,12 @@ public static class UiText
             ["reset"] = ("还原原模型", "Restore original"),
             ["reset.tooltip"] = ("将强度归零，回到原模型位置", "Set strength to zero and return to the original model"),
             ["install"] = ("保存并应用到游戏", "Save & apply to game"),
+            ["export.only"] = ("保存模型到本地", "Save model locally"),
             ["install.tooltip"] = ("生成当前强度的模型，备份现有文件并安装到所选游戏目录。请先退出游戏。", "Generate the selected shape, back up existing files, and install it in the selected game folder. Exit the game first."),
+            ["export.only.tooltip"] = ("生成模型到工作台目录；当前游戏版本未验证安装组件，不会修改游戏文件。", "Generate the model in the studio folder. Installation components are not verified for this game build; game files are not changed."),
             ["summon"] = ("启用 F8 测试召唤", "Enable F8 test summon"),
             ["restore"] = ("撤销上次安装", "Undo last installation"),
-            ["status.ready"] = ("准备扫描。调整完成后，退出游戏并点击“保存并应用到游戏”。", "Ready to scan. After adjusting a model, exit the game and click “Save & apply to game”."),
+            ["status.ready"] = ("准备扫描。调整完成后可保存模型；已验证版本还可应用到游戏。", "Ready to scan. You can save a model after editing; verified builds can also install it."),
             ["status.choose.folder"] = ("请先选择游戏目录。", "Choose the game folder first."),
             ["status.read.index"] = ("正在读取 FPAC 索引（只读，不会抽取整个大包）…", "Reading the FPAC index (read-only; the full archive will not be extracted)…"),
             ["status.scan.complete"] = ("扫描完成：{0} 个基础角色模型，{1} 个找到头像贴图。原始 PAC 保持只读。", "Scan complete: {0} base character models, {1} portrait textures found. Original PAC archives remain read-only."),
@@ -68,7 +70,7 @@ public static class UiText
             ["status.installed.summon.skipped"] = ("已安装 {0}% 模型到：{1}\nF8 测试召唤无法启用，已自动关闭；角色正常出场时仍会使用修改模型。原因：{3}\n备份：{2}", "Installed the {0}% model to: {1}\nF8 test summon could not be enabled and was turned off; the edited model still applies when the character appears normally. Reason: {3}\nBackup: {2}"),
             ["status.installed.normal"] = ("已安装 {0}% 模型到：{1}\n角色正常出场时生效；测试召唤已关闭。备份：{2}", "Installed the {0}% model to: {1}\nThe change applies when the character appears normally; test summon is disabled. Backup: {2}"),
             ["status.restored"] = ("已撤销上次安装：{0}", "Undid the last installation: {0}"),
-            ["choose.game.title"] = ("选择游戏目录（包含 sora_1st.exe 的文件夹）", "Choose the game folder (the folder containing sora_1st.exe)"),
+            ["choose.game.title"] = ("选择游戏目录（包含 sora_1st.exe 或 sora_2nd.exe）", "Choose the game folder containing sora_1st.exe or sora_2nd.exe"),
             ["mode.detecting"] = ("正在检测骨骼；成年资格单独检查", "Detecting bones; adult eligibility is checked separately"),
             ["model.size"] = ("模型大小：{0}", "Model size: {0}"),
             ["model.info"] = ("模型信息：{0}", "Model info: {0}"),
@@ -100,11 +102,12 @@ public static class UiText
             ["age.basis.default"] = ("尚无可核对的本作年龄资料", "No verifiable age information is available for this game"),
             ["age.basis.archive"] = ("由游戏原始模型归档扫描发现；年龄目录未将其标记为未成年", "Found in the original game model archive; the age catalog does not mark it as a minor"),
             ["age.basis.official"] = ("《空之轨迹 the 1st》角色介绍公布年龄", "Published character age for Trails in the Sky the 1st"),
+            ["age.basis.second"] = ("前作官方年龄已确认成年；已核对《空之轨迹 the 2nd》名称表中的同编号角色。未推定本作具体年龄。", "The previous game's published age confirms adulthood; the same character ID was checked in the 2nd Chapter name table. No exact age is inferred for this game."),
             ["age.basis.table"] = ("本作资源表明确标注：", "Identified by the game's resource table: "),
             ["age.basis.name.table"] = ("本作名称表标注为", "The game's name table identifies this as "),
             ["age.source.archive"] = ("游戏原始 asset_common_model.pac", "Original game asset_common_model.pac"),
             ["error.game.running"] = ("游戏正在运行，请先退出游戏再安装。", "The game is running. Exit it before installing."),
-            ["error.invalid.game.root"] = ("请选择同时包含 sora_1st.exe 和 pac 文件夹的游戏根目录。", "Choose the game root containing both sora_1st.exe and the pac folder."),
+            ["error.invalid.game.root"] = ("请选择包含 sora_1st.exe 或 sora_2nd.exe，以及 pac 文件夹的游戏根目录。", "Choose a game root containing sora_1st.exe or sora_2nd.exe and the pac folder."),
             ["error.path.outside"] = ("安装路径超出目标目录。", "The installation path is outside the target directory."),
             ["error.link.path"] = ("安装目标或来源包含链接目录，请选择实际目录：{0}", "The installation source or target contains a linked directory; choose the real directory: {0}"),
             ["error.same.directory"] = ("文件目标被同名目录占用：{0}", "A directory already occupies the target file path: {0}"),
@@ -120,7 +123,8 @@ public static class UiText
             ["error.generation"] = ("模型生成失败，未安装。", "Model generation failed; nothing was installed."),
             ["error.restore.running"] = ("请先退出游戏再恢复。", "Exit the game before restoring."),
             ["error.no.backup"] = ("没有可恢复的安装备份。", "There is no installation backup to restore."),
-            ["error.unsupported.version"] = ("当前游戏程序版本 {0} 不在已验证版本中。此测试版仅支持云豹 Steam 1.0.5.0／1.0.7.0 的指定文件，未安装任何内容。", "Game executable version {0} is not verified. This beta supports only the specified CLE Steam 1.0.5.0/1.0.7.0 files; nothing was installed."),
+            ["error.unsupported.version"] = ("当前游戏程序版本 {0} 尚未验证安装兼容性；仅生成本地模型，未安装任何内容。", "Game executable version {0} is not verified for installation. Only a local model was generated; nothing was installed."),
+            ["error.second.install.unavailable"] = ("2nd 的游戏内加载组件尚未完成验证；仅生成本地模型，不会写入游戏目录。", "The 2nd Chapter in-game loader has not been verified. Only a local model is generated; the game directory is not changed."),
             ["error.compatibility.missing"] = ("缺少游戏兼容性清单 supported-game.json，安装已停止。请重新解压完整工具包。", "The game compatibility manifest supported-game.json is missing. Installation stopped; extract the full tool archive again."),
             ["export.helper.width"] = ("自动模型调整：整体宽度；按当前模型解析骨骼和顶点偏移。", "Automatic model adjustment: overall width; bone and vertex offsets are resolved from the selected model."),
             ["export.helper.chest"] = ("自动模型调整：胸部／胸廓；按当前模型解析骨骼和顶点偏移。", "Automatic model adjustment: chest / torso; bone and vertex offsets are resolved from the selected model."),
@@ -303,6 +307,7 @@ public static class UiText
     {
         if (!IsEnglish) return basis;
         if (basis.StartsWith("由游戏原始模型归档扫描发现", StringComparison.Ordinal)) return T("age.basis.archive");
+        if (basis.StartsWith("前作官方年龄", StringComparison.Ordinal)) return T("age.basis.second");
         if (basis.StartsWith("《空之轨迹", StringComparison.Ordinal)) return T("age.basis.official");
         if (basis.StartsWith("本作资源表明确标注：", StringComparison.Ordinal)) return T("age.basis.table") + basis["本作资源表明确标注：".Length..];
         if (basis.StartsWith("本作名称表标注为", StringComparison.Ordinal)) return T("age.basis.name.table") + basis["本作名称表标注为".Length..];
