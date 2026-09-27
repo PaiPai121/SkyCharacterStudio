@@ -9,8 +9,11 @@ public static class CharacterNames
 {
     private static byte[]? ReadTable(string archiveDirectory)
     {
+        var gameRoot = Path.GetFullPath(Path.Combine(archiveDirectory, "..", ".."));
         foreach (var language in new[] { "sc", "tc", "kr" })
         {
+            var loose = Path.Combine(gameRoot, $"table_{language}", "t_name.tbl");
+            if (File.Exists(loose)) return File.ReadAllBytes(loose);
             var path = Path.Combine(archiveDirectory, $"table_{language}.pac");
             if (!File.Exists(path)) continue;
             var pac = PacArchive.Load(path);

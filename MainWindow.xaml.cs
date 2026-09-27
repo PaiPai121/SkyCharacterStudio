@@ -204,22 +204,23 @@ public partial class MainWindow : Window
             return;
         }
 
-        var steamRoot = Path.Combine(root, "pac", "steam");
-        var modelPath = Path.Combine(steamRoot, "asset_common_model.pac");
-        var infoPath = Path.Combine(steamRoot, "asset_common_model_info.pac");
-        var imagePath = Path.Combine(steamRoot, "image.pac");
         SetStatusKey("status.read.index");
 
         try
         {
             root = GameInstaller.ValidateGameRoot(root);
             var edition = GameEditionInfo.Detect(root);
+            var scanRoot = root;
             var result = await Task.Run(() =>
             {
-                var model = PacArchive.Load(modelPath);
-                PacArchive? modelInfo = File.Exists(infoPath) ? PacArchive.Load(infoPath) : null;
-                PacArchive? image = File.Exists(imagePath) ? PacArchive.Load(imagePath) : null;
+                var model = PacArchive.LoadGameResources(scanRoot, "asset_common_model.pac", true,
+                    "asset/common/model")!;
+                var modelInfo = PacArchive.LoadGameResources(scanRoot, "asset_common_model_info.pac", false,
+                    "asset/common/model_info");
+                var image = PacArchive.LoadGameResources(scanRoot, "image.pac", false,
+                    "asset/dx11/image", "asset/common/image");
                 var characters = CharacterScanner.Build(model, modelInfo, image);
+                if (characters.Count == 0) throw new InvalidDataException(UiText.T("error.model.none"));
                 return (model, image, characters);
             });
             _modelArchive = result.model;
@@ -311,7 +312,10 @@ public partial class MainWindow : Window
         PortraitStatusText.Text=UiText.F("status.loading.model", record.LocalizedName);
         var directory=Path.Combine(_projectRoot,"cache","models",record.Edition.ToString(),record.ModelId,mode);
         try {
-            await AutoModelService.Run(GamePathBox.Text,record.ModelId,mode,directory,isBaseGameCharacter:record.IsBaseGameCharacter,cancellationToken:cancellation.Token);
+            await AutoModelService.Run(GamePathBox.Text,record.ModelId,mode,directory,
+                isBaseGameCharacter:record.IsBaseGameCharacter,cancellationToken:cancellation.Token,
+                modelSource:record.ModelEntry.LoosePath ?? _modelArchive?.ArchivePath,
+                imageArchive:_imageArchive?.ArchivePath);
             if(generation!=_previewGeneration)return;
             PreviewStageText.Text = UiText.T("preview.stage.render");
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
@@ -461,10 +465,9 @@ public partial class MainWindow : Window
                     installBlocker = UiText.T("error.second.loader.missing");
             }
             var testSummon=SummonTestingBox.IsChecked==true;
-            var expected = Path.Combine(target,"pac","steam","asset_common_model.pac");
-            if (_modelArchive is null || !Path.GetFullPath(_modelArchive.Path).Equals(expected,StringComparison.OrdinalIgnoreCase))
+            if (_modelArchive is null || !string.Equals(_scannedGameRoot, target, StringComparison.OrdinalIgnoreCase))
                 await ScanAsync();
-            if (_modelArchive is null || !Path.GetFullPath(_modelArchive.Path).Equals(expected,StringComparison.OrdinalIgnoreCase)
+            if (_modelArchive is null || !string.Equals(_scannedGameRoot, target, StringComparison.OrdinalIgnoreCase)
                 || _selectedCharacter is null || !_modelReady)
                 throw new InvalidOperationException(UiText.T("error.not.ready"));
             SetActionState(false);
@@ -598,8 +601,7 @@ public partial class MainWindow : Window
         foreach (var name in new[] { "Sora No Kiseki the 1st", "Trails in the Sky 2nd Chapter" })
         {
             var candidate = Path.Combine(library, "steamapps", "common", name);
-            if (File.Exists(Path.Combine(candidate, "pac", "steam", "asset_common_model.pac"))
-                && (File.Exists(Path.Combine(candidate, "sora_1st.exe")) || File.Exists(Path.Combine(candidate, "sora_2nd.exe"))))
+            if (File.Exists(Path.Combine(candidate, "sora_1st.exe")) != File.Exists(Path.Combine(candidate, "sora_2nd.exe")))
                 return candidate;
         }
         return "";

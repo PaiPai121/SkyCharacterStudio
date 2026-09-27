@@ -10,7 +10,8 @@ public static class AutoModelService
     private static readonly TimeSpan OperationTimeout = TimeSpan.FromMinutes(4);
 
     public static async Task Run(string game, string model, string mode, string output,
-        int? strength = null, bool isBaseGameCharacter = false, CancellationToken cancellationToken = default)
+        int? strength = null, bool isBaseGameCharacter = false, CancellationToken cancellationToken = default,
+        string? modelSource = null, string? imageArchive = null)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(OperationTimeout);
@@ -36,6 +37,16 @@ public static class AutoModelService
                 start.ArgumentList.Add(argument);
             start.ArgumentList.Add("--edition");
             start.ArgumentList.Add(GameEditionInfo.Detect(game) == GameEdition.Second ? "second" : "first");
+            if (!string.IsNullOrWhiteSpace(modelSource))
+            {
+                start.ArgumentList.Add("--model-source");
+                start.ArgumentList.Add(modelSource);
+            }
+            if (!string.IsNullOrWhiteSpace(imageArchive))
+            {
+                start.ArgumentList.Add("--image-pac");
+                start.ArgumentList.Add(imageArchive);
+            }
             if (isBaseGameCharacter) start.ArgumentList.Add("--base-game-character");
             if (strength.HasValue)
             {

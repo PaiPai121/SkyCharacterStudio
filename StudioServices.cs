@@ -265,7 +265,8 @@ public static class ExportService
         Directory.CreateDirectory(modelRoot);
         var modelPath = System.IO.Path.Combine(modelRoot, record.ModelFileName);
         var game=GameEditionInfo.RootFromModelArchive(modelArchive.Path);
-        await AutoModelService.Run(game,record.ModelId,mode,modelRoot,strength,record.IsBaseGameCharacter);
+        await AutoModelService.Run(game,record.ModelId,mode,modelRoot,strength,record.IsBaseGameCharacter,
+            modelSource:record.ModelEntry.LoosePath ?? modelArchive.ArchivePath);
         var shapeApplied=true;
         string helperMessage = UiText.T(mode.Equals("chest", StringComparison.OrdinalIgnoreCase)
             ? "export.helper.chest" : "export.helper.width");
@@ -277,7 +278,7 @@ public static class ExportService
             DisplayName = record.LocalizedName,
             ShapeStrength = strength,
             SourceModelEntry = record.ModelEntry.Name,
-            SourceArchive = modelArchive.Path,
+            SourceArchive = record.ModelEntry.LoosePath ?? modelArchive.ArchivePath ?? modelArchive.Path,
             PreviewEntry = record.PreviewEntry?.Name,
             ShapeEditApplied = shapeApplied,
             GeneratedUtc = DateTime.UtcNow,

@@ -1,3 +1,10 @@
+# 0.3.5 beta
+
+- Read loose game-relative MDL and DDS resources alongside PAC entries, with loose files taking priority. A single renamed PAC can be read when the original filename is absent.
+- Pass the selected model and image sources through the preview/export pipeline, and release WPF texture file handles so a changed loose texture can be refreshed without stale cache or a locked PNG.
+- Keep scanning and local export available for uninspected executable hashes while retaining the exact-hash installation gate. Add isolated regression fixtures for loose-only, renamed-PAC, model and texture overrides, and offline-only export.
+- Clarify that the portable editor needs no internet connection or separate loader download. The reported 2nd Chapter 1.03.1 build and game-internal appearance remain unverified.
+
 # 0.3.4 beta
 
 - Rebuilt the portable package from a fresh release stage after a manually repacked 0.3.3 archive included generated cache, exports, and installation backups.

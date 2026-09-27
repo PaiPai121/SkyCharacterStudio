@@ -10,15 +10,18 @@ namespace Sky1stCharacterStudio;
 public sealed class PacArchive
 {
     private readonly Dictionary<string, PacEntry> _byName;
+    private readonly string? _archivePath;
 
-    private PacArchive(string path, List<PacEntry> entries)
+    private PacArchive(string path, List<PacEntry> entries, string? archivePath)
     {
         Path = path;
         Entries = entries;
+        _archivePath = archivePath;
         _byName = entries.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
     }
 
     public string Path { get; }
+    public string? ArchivePath => _archivePath;
     public IReadOnlyList<PacEntry> Entries { get; }
 
     public bool TryGet(string name, out PacEntry entry) => _byName.TryGetValue(name, out entry!);
@@ -68,7 +71,75 @@ public sealed class PacArchive
                 Hash = item.Hash
             });
         }
-        return new PacArchive(path, entries);
+        return new PacArchive(path, entries, path);
+    }
+
+    /// <summary>Combine a game's FPAC entries with loose overrides at their game-relative paths.</summary>
+    public static PacArchive? LoadGameResources(string gameRoot, string archiveName, bool required,
+        params string[] looseDirectories)
+    {
+        var root = System.IO.Path.GetFullPath(gameRoot);
+        var expected = System.IO.Path.Combine(root, "pac", "steam", archiveName);
+        var archive = FindGameArchive(expected, looseDirectories);
+        var entries = new Dictionary<string, PacEntry>(StringComparer.OrdinalIgnoreCase);
+        if (archive is not null)
+            foreach (var entry in archive.Entries) entries.Add(entry.Name, entry);
+
+        foreach (var relativeDirectory in looseDirectories)
+        {
+            var directory = System.IO.Path.Combine(root, relativeDirectory.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            if (!Directory.Exists(directory)) continue;
+            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+            {
+                var relative = System.IO.Path.GetRelativePath(root, file).Replace('\\', '/');
+                var suffix = System.IO.Path.GetExtension(file);
+                if (relativeDirectory.EndsWith("/model", StringComparison.OrdinalIgnoreCase) &&
+                    !suffix.Equals(".mdl", StringComparison.OrdinalIgnoreCase)) continue;
+                if (relativeDirectory.EndsWith("/image", StringComparison.OrdinalIgnoreCase) &&
+                    !suffix.Equals(".dds", StringComparison.OrdinalIgnoreCase)) continue;
+                if (relativeDirectory.EndsWith("/model_info", StringComparison.OrdinalIgnoreCase) &&
+                    !suffix.Equals(".mi", StringComparison.OrdinalIgnoreCase) &&
+                    !suffix.Equals(".mdl", StringComparison.OrdinalIgnoreCase)) continue;
+                entries[relative] = new PacEntry
+                {
+                    Name = relative,
+                    Size = new FileInfo(file).Length,
+                    LoosePath = file
+                };
+            }
+        }
+
+        if (archive is null && entries.Count == 0)
+        {
+            if (!required) return null;
+            throw new FileNotFoundException(UiText.F("error.model.sources.missing", expected,
+                System.IO.Path.Combine(root, "asset", "common", "model")));
+        }
+        return new PacArchive(archive?.Path ?? expected, entries.Values.ToList(), archive?.ArchivePath);
+    }
+
+    private static PacArchive? FindGameArchive(string expected, IReadOnlyList<string> looseDirectories)
+    {
+        if (File.Exists(expected)) return Load(expected);
+        var directory = System.IO.Path.GetDirectoryName(expected)!;
+        if (!Directory.Exists(directory)) return null;
+        var stem = System.IO.Path.GetFileNameWithoutExtension(expected);
+        var candidates = new List<PacArchive>();
+        foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly))
+        {
+            if (!System.IO.Path.GetFileName(file).StartsWith(stem, StringComparison.OrdinalIgnoreCase)) continue;
+            try
+            {
+                var candidate = Load(file);
+                if (candidate.Entries.Any(entry => looseDirectories.Any(prefix =>
+                    entry.Name.StartsWith(prefix.TrimEnd('/') + '/', StringComparison.OrdinalIgnoreCase))))
+                    candidates.Add(candidate);
+            }
+            catch (InvalidDataException) { /* A similarly named file is not a readable FPAC. */ }
+        }
+        if (candidates.Count > 1)
+            throw new InvalidDataException(UiText.F("error.archive.ambiguous", stem));
+        return candidates.Count == 1 ? candidates[0] : null;
     }
 
     public void CopyEntryTo(PacEntry entry, string destination)
@@ -78,8 +149,9 @@ public sealed class PacArchive
             ?? throw new InvalidOperationException(UiText.T("error.archive.parent"));
         Directory.CreateDirectory(parent);
 
-        using var source = File.OpenRead(Path);
-        source.Position = entry.Offset;
+        using var source = File.OpenRead(entry.LoosePath ?? _archivePath
+            ?? throw new FileNotFoundException(UiText.T("error.pac.missing")));
+        if (entry.LoosePath is null) source.Position = entry.Offset;
         using var target = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
         CopyExactly(source, target, entry.Size);
     }
@@ -87,8 +159,9 @@ public sealed class PacArchive
     public byte[] ReadEntry(PacEntry entry)
     {
         if (entry.Size > int.MaxValue) throw new InvalidDataException(UiText.T("error.pac.preview.large"));
-        using var source = File.OpenRead(Path);
-        source.Position = entry.Offset;
+        using var source = File.OpenRead(entry.LoosePath ?? _archivePath
+            ?? throw new FileNotFoundException(UiText.T("error.pac.missing")));
+        if (entry.LoosePath is null) source.Position = entry.Offset;
         var bytes = new byte[checked((int)entry.Size)];
         ReadExactly(source, bytes);
         return bytes;

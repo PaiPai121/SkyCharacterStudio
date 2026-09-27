@@ -17,7 +17,7 @@ public static class GameEditionInfo
     {
         var first = File.Exists(Path.Combine(root, ExecutableName(GameEdition.First)));
         var second = File.Exists(Path.Combine(root, ExecutableName(GameEdition.Second)));
-        if (first == second || !File.Exists(Path.Combine(root, "pac", "steam", "asset_common_model.pac")))
+        if (first == second)
             throw new InvalidOperationException(UiText.T("error.invalid.game.root"));
         return second ? GameEdition.Second : GameEdition.First;
     }

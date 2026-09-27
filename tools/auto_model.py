@@ -22,16 +22,34 @@ def detect_edition(game):
     if first==second: raise ValueError('Expected one supported Sky game executable in the selected directory')
     return 'second' if second else 'first'
 def read_entry(pac, name):
-    e=next(e for e in entries(pac) if e['name']==name)
+    e=next((e for e in entries(pac) if e['name']==name),None)
+    if e is None: raise FileNotFoundError(f'Model {name} was not found in {pac}')
     with pac.open('rb') as f: f.seek(e['offset']);return f.read(e['size'])
-def prepare(game, model_id):
-    raw=read_entry(game/'pac/steam/asset_common_model.pac',f'asset/common/model/{model_id}.mdl')
+def prepare(game, model_id, model_source=None):
+    loose=game/'asset/common/model'/f'{model_id}.mdl'
+    source=Path(model_source) if model_source else (loose if loose.is_file() else game/'pac/steam/asset_common_model.pac')
+    if not source.is_file(): raise FileNotFoundError(f'Model source not found: {source}')
+    raw=source.read_bytes() if source.suffix.lower()=='.mdl' else read_entry(source,f'asset/common/model/{model_id}.mdl')
     raw=mdl.decryptCLE(raw)
     if raw[:4]!=b'MDL ' or struct.unpack_from('<I',raw,4)[0] not in (4,5):
         raise ValueError('Only MDL v4/v5 editing is supported')
     mats=mdl.obtain_material_data(raw); data=mdl.obtain_mesh_data(raw,mats)
     if not data: raise ValueError('Model has no editable meshes')
     return raw,mats,data
+
+def find_textures(game, image_pac=None):
+    """Overlay loose game-relative DDS files on the image PAC, as the game loader does."""
+    archive=Path(image_pac) if image_pac else game/'pac/steam/image.pac'
+    textures={}
+    if archive.is_file():
+        textures={Path(e['name']).name.lower():('pac',archive,e) for e in entries(archive)}
+    for relative in ('asset/dx11/image','asset/common/image'):
+        directory=game/relative
+        if not directory.is_dir(): continue
+        for path in directory.rglob('*'):
+            if path.is_file() and path.suffix.lower()=='.dds':
+                textures[path.name.lower()]=('loose',path,None)
+    return textures
 
 def _unit(vector, fallback):
     vector=np.asarray(vector,dtype=float)
@@ -366,17 +384,17 @@ def run(a):
     is_base_game_character=getattr(a,'base_game_character',False)
     edition=getattr(a,'edition',None) or detect_edition(a.game)
     if edition!=detect_edition(a.game): raise ValueError('Requested edition does not match the selected game executable')
-    raw,mats,data=prepare(a.game,a.model);params=profile(data,a.model,a.mode,is_base_game_character,edition)
+    raw,mats,data=prepare(a.game,a.model,a.model_source);params=profile(data,a.model,a.mode,is_base_game_character,edition)
     preview_transforms,preview_alignment=(preview_group_transforms(data) if not a.export else ([],[]))
     a.out.mkdir(parents=True,exist_ok=True);result=[];missing=set();patched=bytearray(raw);start,size=sections(raw)[4]
-    textures={}; imagepac=a.game/'pac/steam/image.pac'
+    textures={};converted=set()
     borrowed_ids=sorted({match.lower() for group in data['mesh_blocks']
                          if 'shadow' not in group['name'].lower()
                          for label in [group['name']]+[p['material'] for p in group['primitives']]
                          for match in re.findall(r'chr\d{4}',label,re.IGNORECASE)
                          if match.lower()!=a.model.lower()})
     if not a.export:
-        textures={Path(e['name']).name:e for e in entries(imagepac)}
+        textures=find_textures(a.game,a.image_pac)
     for gi,group in enumerate(data['mesh_blocks']):
         for pi,primitive in enumerate(group['primitives']):
             mb=data['mesh_buffers'][gi][pi]
@@ -411,15 +429,22 @@ def run(a):
                 continue
             mat=next(m for m in mats if m['material_name']==primitive['material'])
             tex=next((t for t in mat['textures'] if t['texture_slot']==0),{})
-            texname=tex.get('texture_image_name','');png=texname+'.png';e=textures.get(texname+'.dds')
-            if e:
+            texname=tex.get('texture_image_name','');png=texname+'.png';source=textures.get((texname+'.dds').lower())
+            if source:
                 dest=a.out/png
-                if not dest.exists():
-                    with imagepac.open('rb') as f:
-                        f.seek(e['offset'])
-                        texture=decode_payload(mdl.decryptCLE(f.read(e['size'])))
-                    with Image.open(io.BytesIO(texture)) as img:
-                        img.save(dest)
+                if png not in converted:
+                    try:
+                        kind,path,entry=source
+                        if kind=='loose': packed=path.read_bytes()
+                        else:
+                            with path.open('rb') as f:
+                                f.seek(entry['offset']);packed=f.read(entry['size'])
+                        texture=decode_payload(mdl.decryptCLE(packed))
+                        with Image.open(io.BytesIO(texture)) as img: img.save(dest)
+                        converted.add(png)
+                    except Exception as error:
+                        print(f'Texture {texname} could not be decoded: {error}',file=sys.stderr)
+                        png='';missing.add(texname)
             else:
                 png=''
                 if texname:missing.add(texname)
@@ -440,5 +465,5 @@ def run(a):
         (a.out/'model-meta.json').write_text(json.dumps({'missing_textures':sorted(missing),'chest_detection':detect_chest(data),'adult_eligible':adult_eligible(a.model,is_base_game_character,edition),'age_info':age_info(a.model,is_base_game_character,edition),'deformation_gain':params[3],'preview_alignment':preview_alignment,'borrowed_model_ids':borrowed_ids}))
     print(json.dumps({'ok':True,'model':a.model,'mode':a.mode,'height':params[2]}))
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--game',type=Path,required=True);p.add_argument('--model',required=True);p.add_argument('--mode',choices=['width','chest'],default='width');p.add_argument('--strength',type=int,default=0);p.add_argument('--out',type=Path,required=True);p.add_argument('--export',action='store_true');p.add_argument('--base-game-character',action='store_true');p.add_argument('--edition',choices=['first','second'])
+    p=argparse.ArgumentParser();p.add_argument('--game',type=Path,required=True);p.add_argument('--model',required=True);p.add_argument('--mode',choices=['width','chest'],default='width');p.add_argument('--strength',type=int,default=0);p.add_argument('--out',type=Path,required=True);p.add_argument('--export',action='store_true');p.add_argument('--base-game-character',action='store_true');p.add_argument('--edition',choices=['first','second']);p.add_argument('--model-source',type=Path);p.add_argument('--image-pac',type=Path)
     run(p.parse_args())

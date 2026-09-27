@@ -8,6 +8,7 @@ public sealed class PacEntry
     public long Offset { get; init; }
     public long Size { get; init; }
     public ulong Hash { get; init; }
+    public string? LoosePath { get; init; }
 
     public override string ToString() => $"{Name} ({Size:N0} bytes)";
 }

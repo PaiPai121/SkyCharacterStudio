@@ -1,6 +1,7 @@
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -34,6 +35,125 @@ internal static class SecondChapterCheck
             Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
             Dispatcher.PushFrame(frame);
             Thread.Sleep(10);
+        }
+    }
+
+    private static void WriteSingleModelPac(string path, PacEntry entry, byte[] model)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var name = Encoding.UTF8.GetBytes(entry.Name);
+        var offset = checked((ulong)(48 + name.Length + 1));
+        using var writer = new BinaryWriter(File.Create(path), Encoding.UTF8);
+        writer.Write(Encoding.ASCII.GetBytes("FPAC"));
+        writer.Write(1u);
+        writer.Write(checked((uint)offset));
+        writer.Write(0u);
+        writer.Write(entry.Hash);
+        writer.Write(48UL);
+        writer.Write(checked((ulong)model.Length));
+        writer.Write(offset);
+        writer.Write(name);
+        writer.Write((byte)0);
+        writer.Write(model);
+    }
+
+    private static void CheckLooseAndRenamedSources(MainWindow window, string sourceGame,
+        CharacterRecord adult, PacArchive sourceArchive, string workspace)
+    {
+        Console.WriteLine("STAGE loose-only, renamed PAC and loose override fixtures");
+        var fixture = Path.Combine(workspace, "loose-source-fixture-" + Guid.NewGuid().ToString("N"));
+        var sourceModel = sourceArchive.ReadEntry(adult.ModelEntry);
+        var sourceImages = PacArchive.Load(Path.Combine(sourceGame, "pac", "steam", "image.pac"));
+        var baseTextureName = "asset/dx11/image/chr5002_01_a.dds";
+        var replacementTextureName = "asset/dx11/image/chr5002_02_a.dds";
+        if (!sourceImages.TryGet(baseTextureName, out var baseTexture)
+            || !sourceImages.TryGet(replacementTextureName, out var replacementTexture))
+            throw new InvalidDataException("Real-game material regression textures were not found");
+        var replacementBytes = sourceImages.ReadEntry(replacementTexture);
+        var previewCache = Path.Combine(outputRootForPreview(), "cache", "models", "Second", "chr5002", "width");
+        var replacementPng = Path.Combine(previewCache, "chr5002_02_a.png");
+        if (!File.Exists(replacementPng))
+            throw new InvalidDataException("The reference material was not rendered by the real-game preview");
+        var expectedTextureHash = Hash(replacementPng);
+        var gamePath = (TextBox)window.FindName("GamePathBox");
+        var selector = (ComboBox)window.FindName("CharacterBox");
+        bool Ready() => (bool)typeof(MainWindow).GetField("_modelReady", Private)!.GetValue(window)!;
+        foreach (var layout in new[] { "loose", "renamed", "overlay" })
+        {
+            var root = Path.Combine(fixture, layout);
+            Directory.CreateDirectory(root);
+            var fixtureExe = Path.Combine(root, "sora_2nd.exe");
+            File.Copy(Path.Combine(sourceGame, "sora_2nd.exe"), fixtureExe);
+            if (layout == "loose")
+            {
+                // A changed executable hash simulates an uninspected build. Scanning/exporting
+                // must still work, while installation must remain gated by the exact hash.
+                using var modifiedExe = new FileStream(fixtureExe, FileMode.Append, FileAccess.Write);
+                modifiedExe.WriteByte(0);
+            }
+            var loose = Path.Combine(root, "asset", "common", "model", "chr5002.mdl");
+            if (layout is "loose" or "overlay")
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(loose)!);
+                File.WriteAllBytes(loose, sourceModel);
+            }
+            if (layout == "renamed")
+                WriteSingleModelPac(Path.Combine(root, "pac", "steam", "asset_common_model.pac.disabled"),
+                    adult.ModelEntry, sourceModel);
+            if (layout == "overlay")
+                WriteSingleModelPac(Path.Combine(root, "pac", "steam", "asset_common_model.pac"),
+                    adult.ModelEntry, Encoding.ASCII.GetBytes("invalid PAC model; loose file must win"));
+            if (layout is "loose" or "overlay")
+            {
+                var looseTexture = Path.Combine(root, baseTextureName.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(looseTexture)!);
+                File.WriteAllBytes(looseTexture, replacementBytes);
+            }
+            if (layout == "overlay")
+                WriteSingleModelPac(Path.Combine(root, "pac", "steam", "image.pac"),
+                    baseTexture, sourceImages.ReadEntry(baseTexture));
+
+            gamePath.Text = root;
+            var scan = (Task)typeof(MainWindow).GetMethod("ScanAsync", Private)!.Invoke(window, null)!;
+            Pump(() => scan.IsCompleted, layout + " scan");
+            scan.GetAwaiter().GetResult();
+            var records = selector.Items.Cast<CharacterRecord>().ToList();
+            if (records.Count != 1 || records[0].ModelId != "chr5002")
+                throw new InvalidDataException($"{layout} scan did not find the isolated character model");
+            if ((layout == "renamed") == (records[0].ModelEntry.LoosePath is not null))
+                throw new InvalidDataException($"{layout} selected the wrong model source");
+            selector.SelectedItem = records[0];
+            Pump(Ready, layout + " preview");
+            if (((LiveModelView)window.FindName("LiveView")).Geometry.Count == 0)
+                throw new InvalidDataException($"{layout} preview has no geometry");
+            if (layout is "loose" or "overlay")
+            {
+                var overlaidPng = Path.Combine(previewCache, "chr5002_01_a.png");
+                if (!File.Exists(overlaidPng) || Hash(overlaidPng) != expectedTextureHash)
+                    throw new InvalidDataException($"{layout} preview did not render the loose texture override");
+            }
+            var archive = (PacArchive)typeof(MainWindow).GetField("_modelArchive", Private)!.GetValue(window)!;
+            if (!archive.ReadEntry(records[0].ModelEntry).SequenceEqual(sourceModel))
+                throw new InvalidDataException($"{layout} read a different model than the preview");
+            if (layout == "loose")
+            {
+                try
+                {
+                    GameInstaller.ValidateSupportedGame(root);
+                    throw new InvalidDataException("An uninspected executable was accepted for installation");
+                }
+                catch (InvalidOperationException) { }
+                ((Slider)window.FindName("ShapeSlider")).Value = 173;
+                var export = (Task)typeof(MainWindow).GetMethod("InstallCurrentAsync", Private)!.Invoke(window, null)!;
+                Pump(() => export.IsCompleted, "uninspected build offline export");
+                export.GetAwaiter().GetResult();
+                var exportedModel = Path.Combine(outputRootForPreview(), "exports", "second",
+                    "chr5002_width_173", "asset", "common", "model", "chr5002.mdl");
+                var status = ((TextBlock)window.FindName("StatusText")).Text;
+                if (!File.Exists(exportedModel) || !status.Contains(exportedModel, StringComparison.OrdinalIgnoreCase)
+                    || File.Exists(Path.Combine(root, "xinput1_4.dll")))
+                    throw new InvalidDataException("An uninspected build did not stay on the offline-only export path");
+            }
         }
     }
 
@@ -157,6 +277,8 @@ internal static class SecondChapterCheck
             throw new InvalidDataException("A checked game file changed during offline export");
         if (!exported.ModelPath.Equals(model, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Offline export reported the wrong model path");
+        CheckLooseAndRenamedSources(window, game, adult, archive,
+            Environment.GetEnvironmentVariable("SKY1ST_SMOKE_ROOT") ?? outputRoot);
         Console.WriteLine("PASS scan 170; v4/v5 preview; loading state; per-game age gate; local export; executable hash, selected model hash, PAC metadata and proxy state unchanged");
         app.Shutdown();
     }

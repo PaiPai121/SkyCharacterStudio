@@ -67,16 +67,27 @@ public sealed class LiveModelView : Grid
         Geometry.Clear(); scene.Children.Clear();
         scene.Children.Add(new AmbientLight(Color.FromRgb(125,125,125)));
         scene.Children.Add(new DirectionalLight(Colors.White,new Vector3D(-1,-1,-2)));
+        var textures = new Dictionary<(string Path, bool Opaque), BitmapSource>();
         foreach(var mesh in SourceMeshes)
         {
             var geo=new MeshGeometry3D { TriangleIndices=new Int32Collection(mesh.indices), Normals=new Vector3DCollection(mesh.normals.Select(n=>new Vector3D(n[0],n[1],n[2]))), TextureCoordinates=new PointCollection(mesh.uv.Select(u=>new Point(u[0],u[1]))) };
             Geometry.Add(geo);
             Brush brush=Brushes.LightGray;
             if(mesh.texture.Length>0) {
-                BitmapSource texture=new BitmapImage(new Uri(Path.GetFullPath(Path.Combine(directory,mesh.texture))));
-                // These game materials use alpha as shader data, not transparency.
-                if(mesh.opaque) texture=new FormatConvertedBitmap(texture,PixelFormats.Bgr32,null,0);
-                texture.Freeze();
+                var texturePath=Path.GetFullPath(Path.Combine(directory,mesh.texture));
+                var textureKey=(texturePath,mesh.opaque);
+                if(!textures.TryGetValue(textureKey,out var texture)) {
+                    using var stream=File.OpenRead(texturePath);
+                    var image=new BitmapImage();
+                    image.BeginInit();
+                    image.CacheOption=BitmapCacheOption.OnLoad;
+                    image.StreamSource=stream;
+                    image.EndInit();
+                    // These game materials use alpha as shader data, not transparency.
+                    texture=mesh.opaque ? new FormatConvertedBitmap(image,PixelFormats.Bgr32,null,0) : image;
+                    texture.Freeze();
+                    textures.Add(textureKey,texture);
+                }
                 brush=new ImageBrush(texture) { ViewportUnits=BrushMappingMode.Absolute, Viewport=new Rect(0,0,1,1), TileMode=TileMode.Tile };
             }
             var material=new DiffuseMaterial(brush);
