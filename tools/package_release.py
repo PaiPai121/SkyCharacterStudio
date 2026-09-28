@@ -17,7 +17,7 @@ def copy(src,dest):
  else:shutil.copy2(src,dest)
 for file in a.build.iterdir():
  if file.is_file() and file.suffix in ('.exe','.dll','.json'):copy(file,a.out/file.name)
-for name in ['character-ages.json','character-ages-2nd.json','supported-game.json','SkyCharacterStudio.ico']:copy(root/'assets'/name,a.out/'assets'/name)
+for name in ['character-ages.json','character-ages-2nd.json','first-install-builds.json','loader-integrity.json','SkyCharacterStudio.ico']:copy(root/'assets'/name,a.out/'assets'/name)
 for name in ['auto_model.py','asset_codec.py','bone_profile.py','character_age.py','apply_shape.py','preview_dds.py','lib_fmtibvb.py']:copy(root/'tools'/name,a.out/'tools'/name)
 dat_builder=next((candidate for candidate in [native_dir/'build_summon_dat.exe',root/'tools'/'build_summon_dat.exe',mod/'tools'/'build_summon_dat.exe'] if candidate.exists()),None)
 if dat_builder is None:raise SystemExit('Missing build_summon_dat.exe; build native components before packaging')
@@ -45,11 +45,11 @@ if not base.is_dir():raise SystemExit('Missing verified runtime template: '+str(
 for name in ['xinput1_4.dll','ED9Loader/ED9ModManager.exe','ED9Loader/plugins/ScriptInject.dll']:
  copy(base/name,template/name)
 second_loader=a.second_loader.resolve()
-supported=json.loads((root/'assets/supported-game.json').read_text(encoding='utf8'))
+supported=json.loads((root/'assets/loader-integrity.json').read_text(encoding='utf8'))
 second_loader_size=second_loader.stat().st_size
 second_loader_hash=hashlib.sha256(second_loader.read_bytes()).hexdigest()
 if not any(item['game']=='second' and item['size']==second_loader_size and item['sha256'].lower()==second_loader_hash for item in supported['loaders']):
- raise SystemExit('The 2nd Chapter loader does not match assets/supported-game.json; refusing to package it')
+ raise SystemExit('The 2nd Chapter loader does not match assets/loader-integrity.json; refusing to package it')
 copy(second_loader,a.out/'runtime/second-loader/xinput1_4.dll')
 native_plugins={
  'EventStarter.dll':[native_dir/'EventStarter.dll',root/'release-stage'/'native'/'EventStarter.dll',base/'ED9Loader/plugins/EventStarter.dll'],

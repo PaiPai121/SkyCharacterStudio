@@ -45,9 +45,9 @@ public static class SecondLoaderService
             throw new InvalidDataException(UiText.F("error.second.loader.invalid", path));
         using var stream = File.OpenRead(path);
         var hash = Convert.ToHexString(SHA256.HashData(stream));
-        var manifest = Path.Combine(AppContext.BaseDirectory, "assets", "supported-game.json");
+        var manifest = Path.Combine(AppContext.BaseDirectory, "assets", "loader-integrity.json");
         if (!File.Exists(manifest))
-            throw new FileNotFoundException(UiText.T("error.compatibility.missing"), manifest);
+            throw new FileNotFoundException(UiText.T("error.loader.manifest.missing"), manifest);
         using var supported = JsonDocument.Parse(File.ReadAllText(manifest));
         var accepted = supported.RootElement.GetProperty("loaders").EnumerateArray()
             .Any(loader => loader.GetProperty("game").GetString() == "second"

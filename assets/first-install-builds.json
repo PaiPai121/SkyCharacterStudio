@@ -1,0 +1,13 @@
+{
+  "game": "first",
+  "builds": [
+    {
+      "version": "1.0.5.0",
+      "sha256": "9A8F3BE355D81C2D1E68494C51578F9F6A3C3EF8DBA9F445FCEE60CFE71A74AF"
+    },
+    {
+      "version": "1.0.7.0",
+      "sha256": "9585D3D993874D65156ABA633C00B8A25FAAB3AFDE8953A8A183C80FB8F657AC"
+    }
+  ]
+}

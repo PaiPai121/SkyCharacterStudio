@@ -8,14 +8,16 @@
 - 进度条旁的“还原原模型”会把当前强度一键归零，预览立即回到原模型位置；它不会安装或修改游戏文件。
 - 胸部／胸廓：优先使用完整骨骼，缺失单侧末端时检查对称关系；无完整胸部骨骼时根据脊柱、颈部、蒙皮权重与前侧表面自动定位。变形使用沿骨骼方向的椭圆区域、胸廓内侧衰减、前侧渐进轮廓和衣料／皮肤权重平滑，避免把两个区域简单平移或缩放成球状。估计定位会明确标注。超过 ±100% 时使用平滑响应并按各模型自动约束，避免极端强度翻面。年龄资格与骨骼检测独立显示：仅目录已确认成年者可用胸部调整；未成年或年龄资料不足者仍可使用整体宽度。年龄资料详见 assets/character-ages.json，前端与导出使用同一规则。鼠标悬停角色详情可查看依据与来源。
 - 没有可靠骨骼、布局不支持时会报错；缺少贴图时提示并显示灰色。扫描列表可能包含游戏未使用的资源，不代表全部能在游戏中出场。
-- 已核对的 1st 与 2nd 游戏版本都可用“保存并应用到游戏”备份后安装，必须先退出游戏；原始 PAC 只读。便携包分别包含两款游戏的专用加载器，选定游戏目录后自动识别 1st／2nd 并使用对应组件，无需用户单独下载 DLL。2nd 安装只写入专用加载器和当前模型，支持撤销；模型在游戏内的外观和动画仍需验证。
+- 1st 与 2nd 都可用“保存并应用到游戏”备份后安装，必须先退出游戏；原始 PAC 只读。2nd 安装前检查游戏程序为有效 64 位 Windows 程序及角色模型资源，不再按 EXE 哈希限制版本；1st 的插件依赖固定程序地址，仍只允许已核对版本安装。便携包分别包含两款游戏的专用加载器，选定游戏目录后自动识别 1st／2nd 并使用对应组件，无需用户单独下载 DLL。2nd 安装只写入专用加载器和当前模型，支持撤销；未实测版本和模型在游戏内的外观、动画仍需验证。
 - 1st 可勾选 F8 测试召唤：“保存并应用到游戏”同时把召唤目标设为此次安装的角色。进入可自由移动的场景按 F8；F9 切换原版／调整后，再按 F8 重建测试角色。2nd 中该功能禁用。
 
 已完成多角色离线加载、WPF 选择/滑条/渲染、预览与导出顶点一致性检查。通用变形的骨骼动画和服装在游戏内的表现尚未逐角色实测。
 
 开发：`tools/auto_model.py` 在源码工作区依赖 Kuro MDL Tool 解析器和 Python 环境；`build-release.ps1` 会将依赖复制到便携包。可用 `SKY_STUDIO_TOOLCHAIN` 指定解析器工具链位置。
 
-开发者打包：在项目根目录双击 `BuildRelease.cmd`，或运行 `powershell -ExecutionPolicy Bypass -File .\build-release.ps1`。打包者需先把与 `assets/supported-game.json` 核对一致的 2nd 加载器放入 `runtime-source/second-loader/xinput1_4.dll`，或使用 `-SecondLoaderPath` 指定文件；构建时会按大小和 SHA-256 校验并装入便携包，玩家无需提供它。脚本会先从 `assets\SkyCharacterStudio.png` 自动生成多尺寸 EXE 图标，然后还原并发布自包含 win-x64 工作台、重新编译 DAT 构建器和两个原生插件、按白名单组装便携目录、检查目录中没有模型/PAC 等游戏资源，再生成 `release-artifacts\SkyCharacterStudio-<版本>-win-x64.zip` 及同名 `.sha256`。如果 `game-directory.txt` 指向可用的游戏目录，还会运行不启动游戏的 WPF/导出/安装回滚离线检查；没有游戏目录时只跳过这一项。`-SkipSmoke` 可跳过离线检查，`-KeepStaging` 可保留本次 `release-stage\pack-*` 临时目录以便审阅。
+开发者打包：在项目根目录双击 `BuildRelease.cmd`，或运行 `powershell -ExecutionPolicy Bypass -File .\build-release.ps1`。打包者需先把与 `assets/loader-integrity.json` 核对一致的 2nd 加载器放入 `runtime-source/second-loader/xinput1_4.dll`，或使用 `-SecondLoaderPath` 指定文件；构建时会按大小和 SHA-256 校验并装入便携包，玩家无需提供它。脚本会先从 `assets\SkyCharacterStudio.png` 自动生成多尺寸 EXE 图标，然后还原并发布自包含 win-x64 工作台、重新编译 DAT 构建器和两个原生插件、按文件清单组装便携目录、检查目录中没有模型/PAC 等游戏资源，再生成 `release-artifacts\SkyCharacterStudio-<版本>-win-x64.zip` 及同名 `.sha256`。如果 `game-directory.txt` 指向可用的游戏目录，还会运行不启动游戏的 WPF/导出/安装回滚离线检查；没有游戏目录时只跳过这一项。`-SkipSmoke` 可跳过离线检查，`-KeepStaging` 可保留本次 `release-stage\pack-*` 临时目录以便审阅。
+
+1st 的已核对 EXE 哈希在 `assets/first-install-builds.json`；2nd 不读取此清单。`assets/loader-integrity.json` 只校验随包提供的 2nd 加载器，不能用来推断游戏版本兼容性。
 
 角色名字自动从所选游戏目录的 table_sc/t_name.tbl 读取（缺少时回退繁中、韩文表）。1st 保留原有的多名称显示；2nd 优先显示资源定义条目，场景称呼和同编号别名会注明，不能仅凭名称确认模型身份。预览会依据各网格组的骨骼绑定矩阵对齐复用部件，并提示来自其他编号的部件。未登记模型保留编号。骨骼检测独立于成年资格，支持 Breast/Bust/Mune 及常见左右、末端命名；没有完整末端时使用蒙皮表面估计；定位依据不足时禁用，不强行套用其他角色的参数。
 

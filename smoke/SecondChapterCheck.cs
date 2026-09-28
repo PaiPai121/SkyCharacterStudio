@@ -86,8 +86,7 @@ internal static class SecondChapterCheck
             File.Copy(Path.Combine(sourceGame, "sora_2nd.exe"), fixtureExe);
             if (layout == "loose")
             {
-                // A changed executable hash simulates an uninspected build. Scanning/exporting
-                // must still work, while installation must remain gated by the exact hash.
+                // A changed hash simulates a different game build while keeping a valid x64 PE.
                 using var modifiedExe = new FileStream(fixtureExe, FileMode.Append, FileAccess.Write);
                 modifiedExe.WriteByte(0);
             }
@@ -137,22 +136,22 @@ internal static class SecondChapterCheck
                 throw new InvalidDataException($"{layout} read a different model than the preview");
             if (layout == "loose")
             {
-                try
-                {
-                    GameInstaller.ValidateSupportedGame(root);
-                    throw new InvalidDataException("An uninspected executable was accepted for installation");
-                }
-                catch (InvalidOperationException) { }
+                GameInstaller.ValidateInstallTarget(root);
+                var exeHash = Hash(fixtureExe);
+                var originalModelHash = Hash(loose);
                 ((Slider)window.FindName("ShapeSlider")).Value = 173;
-                var export = (Task)typeof(MainWindow).GetMethod("InstallCurrentAsync", Private)!.Invoke(window, null)!;
-                Pump(() => export.IsCompleted, "uninspected build offline export");
-                export.GetAwaiter().GetResult();
+                var install = (Task)typeof(MainWindow).GetMethod("InstallCurrentAsync", Private)!.Invoke(window, null)!;
+                Pump(() => install.IsCompleted, "different-hash 2nd install");
+                install.GetAwaiter().GetResult();
                 var exportedModel = Path.Combine(outputRootForPreview(), "exports", "second",
                     "chr5002_width_173", "asset", "common", "model", "chr5002.mdl");
-                var status = ((TextBlock)window.FindName("StatusText")).Text;
-                if (!File.Exists(exportedModel) || !status.Contains(exportedModel, StringComparison.OrdinalIgnoreCase)
-                    || File.Exists(Path.Combine(root, "xinput1_4.dll")))
-                    throw new InvalidDataException("An uninspected build did not stay on the offline-only export path");
+                var installedLoader = Path.Combine(root, "xinput1_4.dll");
+                if (!File.Exists(exportedModel) || !File.Exists(installedLoader)
+                    || Hash(loose) != Hash(exportedModel) || Hash(fixtureExe) != exeHash)
+                    throw new InvalidDataException("The different-hash 2nd build did not install the generated model");
+                GameInstaller.RestoreLatest(root, Path.Combine(outputRootForPreview(), "install-backups"), () => false);
+                if (File.Exists(installedLoader) || Hash(loose) != originalModelHash || Hash(fixtureExe) != exeHash)
+                    throw new InvalidDataException("The different-hash 2nd installation was not restored");
             }
         }
     }
@@ -205,7 +204,7 @@ internal static class SecondChapterCheck
         var modelHash = Convert.ToHexString(SHA256.HashData(archive.ReadEntry(adult.ModelEntry)));
         if (!adult.AdultShapeEligible || unknown.AdultShapeEligible)
             throw new InvalidDataException("Edition-specific age eligibility mismatch");
-        GameInstaller.ValidateSupportedGame(game);
+        GameInstaller.ValidateInstallTarget(game);
 
         bool Ready() => (bool)typeof(MainWindow).GetField("_modelReady", Private)!.GetValue(window)!;
         var legacy = records.Single(record => record.ModelId == "chr5003");

@@ -4,19 +4,19 @@ Game: Trails in the Sky 1st Chapter
 
 Game domain: trailsintheskyfirstchapter
 
-Name: Sky 1st Character Studio - CLE Edition (Beta)
+Name: Sky Character Studio - CLE Edition (Beta)
 
-Version: 0.2.2-beta
+Version: 0.3.6-beta
 
-Summary: Offline character shape editor with real model previews, local installation backups, optional selected-character test summons and Chinese/English UI. Verified CLE Steam 1.0.5.0/1.0.7.0 executable hashes only.
+Summary: Offline 1st/2nd Chapter character shape editor with model previews, installation backups, optional 1st Chapter test summons and Chinese/English UI.
 
 ## Description
 
 Select a character from your own installed game, preview shape adjustments and click **Save & apply to game** to generate and install the result without editing the original PAC archives. The editor supports overall width and chest/torso adjustments for characters whose adulthood is confirmed in the age catalog. Minors and characters with unknown ages are restricted to overall width. It automatically identifies usable bones or estimates the local surface using spine/neck landmarks and skinning weights.
 
-Windows x64 .NET and Python runtimes are included. No original game assets are distributed. The beta accepts the verified Clouded Leopard Entertainment Steam executable hashes for 1.0.5.0 and 1.0.7.0; installation is refused for other executable fingerprints. Version 1.0.7.0 passed offline structural and installer checks, but not an in-game test. GungHo/global-edition compatibility is not claimed.
+Windows x64 .NET and Python runtimes are included. No original game assets are distributed. The 2nd Chapter installer checks its x64 executable and readable character resources without requiring a particular game EXE hash. A changed 2nd executable hash passed isolated installation and restore tests; this does not establish compatibility for every game update. The 1st Chapter's address-specific plugins remain limited to inspected 1.0.5.0/1.0.7.0 executable hashes. The reported 2nd Chapter 1.03.1 build and generated 2nd Chapter models still need in-game verification. GungHo/global-edition compatibility is not claimed.
 
-The interface opens in Chinese and can be switched to English from the upper-right selector. See README-PLAYERS.md for Chinese instructions and an English quick start. The optional F8 summon requires script_sc.pac from the player's game; if summon setup fails, the editor disables F8, reports the reason, and still installs the edited model normally. On an unsupported executable, it saves the model locally and skips installation. Keep installation backups if you want to undo changes.
+The interface opens in Chinese and can be switched to English from the upper-right selector. See README-PLAYERS.md for Chinese instructions and an English quick start. The optional F8 summon requires script_sc.pac from the player's 1st Chapter game; if summon setup fails, the editor disables F8, reports the reason, and still installs the edited model normally. If the game folder or executable fails validation, the editor saves the model locally without installing. Keep installation backups if you want to undo changes.
 
 Optional F8 summons are off by default. Enable the test option before applying, enter a free-roaming field scene and press F8. Press F9 then F8 to compare the original and edited model. This creates a temporary test actor, not a party member.
 

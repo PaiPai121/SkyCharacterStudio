@@ -1,3 +1,9 @@
+# 0.3.6 beta
+
+- Removed the exact game-executable hash gate for 2nd Chapter. Installation checks for an x64 Windows executable and readable character model resources; loader integrity, conflict, backup, rollback, and restore checks remain in place.
+- Kept the inspected 1st Chapter hashes in a separate manifest because its plugins target executable-specific addresses. A different but valid 2nd executable hash now passes isolated install/restore checks; the 1st hash gate still rejects an altered executable.
+- The reported 2nd Chapter 1.03.1 executable was not available, so its in-game loader and model behavior remain unverified.
+
 # 0.3.5 beta
 
 - Read loose game-relative MDL and DDS resources alongside PAC entries, with loose files taking priority. A single renamed PAC can be read when the original filename is absent.

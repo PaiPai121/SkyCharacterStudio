@@ -66,6 +66,8 @@ internal static class SecondInstallCheck
         Directory.CreateDirectory(Path.Combine(fakeGame, "pac", "steam"));
         var fakeExe = Path.Combine(fakeGame, "sora_2nd.exe");
         File.Copy(Path.Combine(sourceGame, "sora_2nd.exe"), fakeExe);
+        using (var changedBuild = new FileStream(fakeExe, FileMode.Append, FileAccess.Write))
+            changedBuild.WriteByte(0);
         var fakePac = Path.Combine(fakeGame, "pac", "steam", "asset_common_model.pac");
         WriteSingleModelPac(sourceArchive, record.ModelEntry, fakePac);
         using (var imageWriter = new BinaryWriter(File.Create(Path.Combine(fakeGame, "pac", "steam", "image.pac"))))
@@ -77,7 +79,7 @@ internal static class SecondInstallCheck
         }
         var exeHash = Hash(fakeExe);
         var pacHash = Hash(fakePac);
-        GameInstaller.ValidateSupportedGame(fakeGame);
+        GameInstaller.ValidateInstallTarget(fakeGame);
 
         Console.WriteLine("STAGE export 2nd runtime package");
         var result = ExportService.ExportAsync(record, sourceArchive, testRoot, 100, true,
@@ -130,12 +132,16 @@ internal static class SecondInstallCheck
         try
         {
             GameInstaller.Install(package, fakeGame, backupRoot, () => false);
-            throw new Exception("Unsupported executable was accepted");
+            throw new Exception("Malformed executable was accepted");
         }
         catch (InvalidOperationException) { }
         if (Hash(fakePac) != pacHash)
             throw new InvalidDataException("PAC was modified");
         File.Copy(Path.Combine(sourceGame, "sora_2nd.exe"), fakeExe, true);
+        using (var changedBuild = new FileStream(fakeExe, FileMode.Append, FileAccess.Write))
+            changedBuild.WriteByte(0);
+        if (Hash(fakeExe) != exeHash)
+            throw new InvalidDataException("The alternate executable hash fixture changed unexpectedly");
 
         Console.WriteLine("STAGE WPF Save & apply to isolated 2nd copy");
         UiText.SetLanguage(UiLanguage.Chinese, persist: false);
@@ -176,6 +182,6 @@ internal static class SecondInstallCheck
             || ((Button)window.FindName("InstallButton")).IsEnabled)
             throw new InvalidDataException("Changing the game folder retained the old target or models");
         app.Shutdown();
-        Console.WriteLine("PASS 2nd package layout, model bytes, proxy identity, isolated install, conflict guard, rollback, restore, executable gate and WPF install path; no real game files written");
+        Console.WriteLine("PASS 2nd package layout, model bytes, proxy identity, different-hash install, malformed-executable gate, conflict guard, rollback, restore and WPF install path; no real game files written");
     }
 }

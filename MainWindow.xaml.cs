@@ -453,15 +453,16 @@ public partial class MainWindow : Window
         try {
             var target = GameInstaller.ValidateGameRoot(GamePathBox.Text);
             string? installBlocker = null;
-            try { GameInstaller.ValidateSupportedGame(target); }
-            catch (Exception error) when (error is InvalidOperationException or FileNotFoundException)
+            try { GameInstaller.ValidateInstallTarget(target); }
+            catch (Exception error) when (error is InvalidOperationException or InvalidDataException or FileNotFoundException)
             { installBlocker = error.Message; }
             if (GameInstaller.IsGameRunning(target)) installBlocker = UiText.T("error.game.running");
             string? secondLoader = null;
             if (installBlocker is null && GameEditionInfo.Detect(target) == GameEdition.Second)
             {
-                secondLoader = SecondLoaderService.FindAvailable(target, _projectRoot);
-                if (secondLoader is null)
+                try { secondLoader = SecondLoaderService.FindAvailable(target, _projectRoot); }
+                catch (FileNotFoundException error) { installBlocker = error.Message; }
+                if (secondLoader is null && installBlocker is null)
                     installBlocker = UiText.T("error.second.loader.missing");
             }
             var testSummon=SummonTestingBox.IsChecked==true;

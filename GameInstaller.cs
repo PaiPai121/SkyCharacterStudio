@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -14,27 +15,48 @@ public static class GameInstaller
         return root;
     }
 
-    public static void ValidateSupportedGame(string gameRoot)
+    public static void ValidateInstallTarget(string gameRoot)
     {
         gameRoot = ValidateGameRoot(gameRoot);
         var edition = GameEditionInfo.Detect(gameRoot);
         var executablePath = Path.Combine(gameRoot, GameEditionInfo.ExecutableName(edition));
-        var compatibility = Path.Combine(AppContext.BaseDirectory, "assets", "supported-game.json");
-        if (!File.Exists(compatibility))
-            throw new FileNotFoundException(UiText.T("error.compatibility.missing"), compatibility);
-        using var supported = JsonDocument.Parse(File.ReadAllText(compatibility));
-        var accepted = supported.RootElement.GetProperty("builds").EnumerateArray()
-            .Where(build => build.TryGetProperty("game", out var game)
-                ? string.Equals(game.GetString(), edition == GameEdition.Second ? "second" : "first", StringComparison.OrdinalIgnoreCase)
-                : edition == GameEdition.First)
-            .Select(build => build.GetProperty("sha256").GetString())
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var executable = File.OpenRead(executablePath);
+            using var pe = new PEReader(executable);
+            if (pe.PEHeaders.CoffHeader.Machine != Machine.Amd64
+                || pe.PEHeaders.PEHeader?.Magic != PEMagic.PE32Plus)
+                throw new InvalidOperationException(UiText.T("error.game.executable.format"));
+        }
+        catch (BadImageFormatException error)
+        { throw new InvalidOperationException(UiText.T("error.game.executable.format"), error); }
+
+        var models = PacArchive.LoadGameResources(gameRoot, "asset_common_model.pac", true,
+            "asset/common/model")!;
+        if (!models.Entries.Any(entry => entry.Name.StartsWith("asset/common/model/", StringComparison.OrdinalIgnoreCase)
+            && Path.GetFileName(entry.Name).StartsWith("chr", StringComparison.OrdinalIgnoreCase)
+            && entry.Name.EndsWith(".mdl", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException(UiText.T("error.model.none"));
+
+        if (edition == GameEdition.First) ValidateFirstInstallBuild(executablePath);
+    }
+
+    private static void ValidateFirstInstallBuild(string executablePath)
+    {
+        // The 1st Chapter loader uses executable-specific addresses. The 2nd
+        // Chapter loose-file loader is validated separately and has no EXE hash gate.
+        var manifest = Path.Combine(AppContext.BaseDirectory, "assets", "first-install-builds.json");
+        if (!File.Exists(manifest))
+            throw new FileNotFoundException(UiText.T("error.first.builds.missing"), manifest);
+        using var builds = JsonDocument.Parse(File.ReadAllText(manifest));
         using var executable = File.OpenRead(executablePath);
         var actual = Convert.ToHexString(SHA256.HashData(executable));
-        if (!accepted.Contains(actual))
+        if (!builds.RootElement.GetProperty("builds").EnumerateArray()
+            .Any(build => string.Equals(build.GetProperty("sha256").GetString(), actual,
+                StringComparison.OrdinalIgnoreCase)))
         {
             var version = FileVersionInfo.GetVersionInfo(executablePath).FileVersion ?? "?";
-            throw new InvalidOperationException(UiText.F("error.unsupported.version", version));
+            throw new InvalidOperationException(UiText.F("error.unsupported.first.version", version));
         }
     }
 
@@ -71,7 +93,7 @@ public static class GameInstaller
         gameRoot = ValidateGameRoot(gameRoot);
         runningCheck ??= () => IsGameRunning(gameRoot);
         if (runningCheck()) throw new InvalidOperationException(UiText.T("error.game.running"));
-        ValidateSupportedGame(gameRoot);
+        ValidateInstallTarget(gameRoot);
         var edition = GameEditionInfo.Detect(gameRoot);
         package = Path.GetFullPath(package);
         var requiredPaths = edition == GameEdition.Second

@@ -1,0 +1,11 @@
+{
+  "edition": "Clouded Leopard Entertainment Windows / Steam",
+  "loaders": [
+    {
+      "game": "second",
+      "name": "sora2looseload 2026-09-19 build",
+      "size": 49664,
+      "sha256": "E08A18068A482BB5D187A62023759C0E14AB69D76395B773EF0405D35E2AC8C7"
+    }
+  ]
+}

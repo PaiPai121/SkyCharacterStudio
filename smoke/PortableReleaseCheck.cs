@@ -44,7 +44,7 @@ class PortableReleaseCheck {
   using(var imageWriter=new BinaryWriter(File.Create(Path.Combine(fake,"pac/steam/image.pac")))){
    imageWriter.Write(Encoding.ASCII.GetBytes("FPAC"));imageWriter.Write(0u);imageWriter.Write(16u);imageWriter.Write(0u);
   }
-  GameInstaller.ValidateSupportedGame(fake);
+  GameInstaller.ValidateInstallTarget(fake);
   try { StudioSummonService.ValidateScriptSource(fake);throw new Exception("Missing summon PAC accepted"); }
   catch(FileNotFoundException error) { if(!error.Message.Contains("script_sc.pac") || !error.Message.Contains("F8"))throw; }
   ((TextBox)w.FindName("GamePathBox")).Text=fake;
@@ -73,8 +73,14 @@ class PortableReleaseCheck {
   try{GameInstaller.RestoreLatest(fake,backups,()=>false);throw new Exception("Clobbered another mod");}catch(IOException){}
   File.WriteAllBytes(model,installed);GameInstaller.RestoreLatest(fake,backups,()=>false);
   if(!File.ReadAllBytes(model).SequenceEqual(new byte[]{1,2,3}) || File.Exists(Path.Combine(fake,"xinput1_4.dll")))throw new Exception("Restore mismatch");
-  File.WriteAllBytes(Path.Combine(fake,"sora_1st.exe"),[1,2,3]);
-  try{GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);throw new Exception("Unsupported executable accepted");}catch(InvalidOperationException){}
+  var fakeExe=Path.Combine(fake,"sora_1st.exe");
+  using(var changedBuild=new FileStream(fakeExe,FileMode.Append,FileAccess.Write))changedBuild.WriteByte(0);
+  try{GameInstaller.ValidateInstallTarget(fake);throw new Exception("A different-hash 1st executable passed the address-specific loader gate");}catch(InvalidOperationException){}
+  try{GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);throw new Exception("A different-hash 1st executable was installed");}catch(InvalidOperationException){}
+  if(File.Exists(Path.Combine(fake,"xinput1_4.dll")) || !File.ReadAllBytes(model).SequenceEqual(new byte[]{1,2,3}))
+   throw new Exception("The rejected 1st installation changed game files");
+  File.WriteAllBytes(fakeExe,[1,2,3]);
+  try{GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);throw new Exception("Malformed executable accepted");}catch(InvalidOperationException){}
   ((TextBox)w.FindName("GamePathBox")).Text=fake;
   var offlineScan=(Task)typeof(MainWindow).GetMethod("ScanAsync",F)!.Invoke(w,null)!;Pump(()=>offlineScan.IsCompleted);offlineScan.GetAwaiter().GetResult();
   box.SelectedItem=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5107");Pump(Ready);
@@ -84,11 +90,11 @@ class PortableReleaseCheck {
   Pump(()=>offlineTask.IsCompleted);offlineTask.GetAwaiter().GetResult();
   var offline=Path.Combine(root,"exports","chr5107_width_103","asset","common","model","chr5107.mdl");
   if(!File.Exists(offline) || !File.ReadAllBytes(model).SequenceEqual(new byte[]{1,2,3}) || File.Exists(Path.Combine(fake,"xinput1_4.dll")) ||
-     !((TextBlock)w.FindName("StatusText")).Text.Contains(offline))throw new Exception("Unsupported game did not generate an offline model safely");
+     !((TextBlock)w.FindName("StatusText")).Text.Contains(offline))throw new Exception("Malformed game did not generate an offline model safely");
   ((TextBox)w.FindName("GamePathBox")).Text="";
   if(((TextBlock)w.FindName("TargetGameText")).Text!=UiText.T("game.target.none") || box.Items.Count!=0)
    throw new Exception("Clearing the game folder left stale target information");
-  File.WriteAllText(Path.Combine(smokeRoot,"portable-test-result.txt"),"PASS isolated WPF preview, bundled Python and native builder, normal/summon exports, missing-F8 fallback generated and installed the model, unsupported executable generated offline only, install/restore, changed-file protection. No writes to the actual game.");
+  File.WriteAllText(Path.Combine(smokeRoot,"portable-test-result.txt"),"PASS isolated WPF preview, bundled Python and native builder, normal/summon exports, missing-F8 fallback, 1st different-hash gate, malformed executable offline export and changed-file protection. No writes to the actual game.");
   Console.WriteLine("PASS portable release checks");app.Shutdown();
  }
 }

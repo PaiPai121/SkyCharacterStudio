@@ -9,7 +9,7 @@
     <RootNamespace>Sky1stCharacterStudio</RootNamespace>
     <Platforms>AnyCPU</Platforms>
     <NuGetAudit>false</NuGetAudit>
-    <Version>0.3.5-beta</Version>
+    <Version>0.3.6-beta</Version>
     <ApplicationIcon>assets\SkyCharacterStudio.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);release-stage/**;release-artifacts/**</DefaultItemExcludes>
   </PropertyGroup>
@@ -23,7 +23,8 @@
     <None Include="tools\build_summon_dat.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('tools\build_summon_dat.exe')" />
     <None Include="assets\character-ages.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="assets\character-ages-2nd.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="assets\supported-game.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\first-install-builds.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\loader-integrity.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\auto_model.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\asset_codec.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="tools\apply_shape.py" CopyToOutputDirectory="PreserveNewest" />

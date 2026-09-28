@@ -99,7 +99,8 @@ function Test-PortableDirectory {
         'SkyCharacterStudio.exe',
         'assets/character-ages.json',
         'assets/character-ages-2nd.json',
-        'assets/supported-game.json',
+        'assets/first-install-builds.json',
+        'assets/loader-integrity.json',
         'runtime/python/python.exe',
         'runtime/mod-template/xinput1_4.dll',
         'runtime/second-loader/xinput1_4.dll',
@@ -122,7 +123,7 @@ function Test-PortableDirectory {
         Require-Path $file "清单中的文件 $($property.Name)"
     }
     $loaderPath = Join-Path $Directory 'runtime\second-loader\xinput1_4.dll'
-    $supported = Get-Content -LiteralPath (Join-Path $Directory 'assets\supported-game.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $supported = Get-Content -LiteralPath (Join-Path $Directory 'assets\loader-integrity.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $loaderHash = Get-Sha256 $loaderPath
     $loaderSize = (Get-Item -LiteralPath $loaderPath).Length
     $matched = @($supported.loaders | Where-Object {
@@ -211,13 +212,13 @@ $SecondLoaderPath = if (-not [string]::IsNullOrWhiteSpace($SecondLoaderPath)) {
     Join-Path $root 'runtime-source\second-loader\xinput1_4.dll'
 }
 Require-Path $SecondLoaderPath '打包所需的 2nd 专用加载器（只需打包者提供）'
-$supported = Get-Content -LiteralPath (Join-Path $root 'assets\supported-game.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$supported = Get-Content -LiteralPath (Join-Path $root 'assets\loader-integrity.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $loaderHash = Get-Sha256 $SecondLoaderPath
 $loaderSize = (Get-Item -LiteralPath $SecondLoaderPath).Length
 $matched = @($supported.loaders | Where-Object {
     $_.game -eq 'second' -and $_.size -eq $loaderSize -and $_.sha256 -eq $loaderHash
 })
-if ($matched.Count -ne 1) { throw '打包所用的 2nd 加载器与 assets/supported-game.json 不一致。' }
+if ($matched.Count -ne 1) { throw '打包所用的 2nd 加载器与 assets/loader-integrity.json 不一致。' }
 
 $dotnet = Resolve-Tool -Name 'dotnet' -Candidates @('C:\Program Files\dotnet\dotnet.exe')
 $gxx = Resolve-Tool -Name 'g++' -Candidates @(
