@@ -90,6 +90,20 @@ class PortableReleaseCheck {
   ((TextBox)w.FindName("GamePathBox")).Text=game;
   Directory.CreateDirectory(Path.GetDirectoryName(model)!);File.WriteAllBytes(model,[1,2,3]);
   var backups=Path.Combine(smokeRoot,"test-backups");GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);
+  Console.WriteLine("STAGE reinstall and undo with unchanged 1st loader locked against writes");
+  var proxy=Path.Combine(fake,"xinput1_4.dll");
+  File.WriteAllBytes(model,[1,2,3]);
+  using(var heldLoader=new FileStream(proxy,FileMode.Open,FileAccess.Read,FileShare.Read)){
+   var repeated=GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);
+   if(!File.ReadAllBytes(model).SequenceEqual(File.ReadAllBytes(Path.Combine(normal.RuntimePackagePath!,Path.GetRelativePath(fake,model)))))
+    throw new Exception("A matching locked 1st loader prevented model installation");
+   File.SetLastWriteTimeUtc(Path.Combine(repeated,"installation.json"),DateTime.UtcNow.AddSeconds(2));
+   var restored=GameInstaller.RestoreLatest(fake,backups,()=>false);
+   if(!string.Equals(restored,repeated,StringComparison.OrdinalIgnoreCase)
+      || !File.ReadAllBytes(model).SequenceEqual(new byte[]{1,2,3}) || !File.Exists(proxy))
+    throw new Exception("Undo rewrote the unchanged locked 1st loader or kept the new model");
+  }
+  File.Copy(Path.Combine(normal.RuntimePackagePath!,Path.GetRelativePath(fake,model)),model,true);
   var installed=File.ReadAllBytes(model);File.WriteAllBytes(model,[8,9]);
   try{GameInstaller.RestoreLatest(fake,backups,()=>false);throw new Exception("Clobbered another mod");}catch(IOException){}
   File.WriteAllBytes(model,installed);GameInstaller.RestoreLatest(fake,backups,()=>false);

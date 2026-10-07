@@ -104,6 +104,20 @@ internal static class SecondInstallCheck
             || Hash(fakeExe) != exeHash || Hash(fakePac) != pacHash
             || Directory.Exists(Path.Combine(fakeGame, "ED9Loader")))
             throw new InvalidDataException("2nd isolated install changed unexpected files or copied wrong bytes");
+        Console.WriteLine("STAGE reinstall and undo with unchanged loader locked against writes");
+        File.Delete(targetModel);
+        using (var heldLoader = new FileStream(targetLoader, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            var repeated = GameInstaller.Install(package, fakeGame, backupRoot, () => false);
+            if (Hash(targetLoader) != loaderHash || Hash(targetModel) != Hash(result.ModelPath))
+                throw new InvalidDataException("A matching locked loader prevented model installation");
+            File.SetLastWriteTimeUtc(Path.Combine(repeated, "installation.json"), DateTime.UtcNow.AddSeconds(2));
+            var restored = GameInstaller.RestoreLatest(fakeGame, backupRoot, () => false);
+            if (!string.Equals(restored, repeated, StringComparison.OrdinalIgnoreCase)
+                || File.Exists(targetModel) || Hash(targetLoader) != loaderHash)
+                throw new InvalidDataException("Undo rewrote an unchanged locked loader or kept the new model");
+        }
+        File.Copy(Path.Combine(package, "asset", "common", "model", "chr5002.mdl"), targetModel);
         File.WriteAllText(targetLoader, "another proxy");
         try
         {

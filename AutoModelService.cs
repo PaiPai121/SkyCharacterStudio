@@ -33,6 +33,8 @@ public static class AutoModelService
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8
             };
+            start.ArgumentList.Add("-X");
+            start.ArgumentList.Add("utf8");
             foreach (var argument in new[] { helper, "--game", game, "--model", model, "--mode", mode, "--out", output })
                 start.ArgumentList.Add(argument);
             start.ArgumentList.Add("--edition");
@@ -87,7 +89,17 @@ public static class AutoModelService
                 $"stage=finished elapsed={clock.Elapsed} exit={process.ExitCode}\nstdout:\n{outputText}\nstderr:\n{errorText}",
                 Encoding.UTF8, CancellationToken.None);
             if (process.ExitCode != 0)
-                throw new InvalidDataException(UiText.F("error.model.process", errorText.Trim(), logPath));
+            {
+                // Keep the full traceback in the log; the preview pane needs the
+                // actionable final line instead of filling itself with stack frames.
+                var detail = errorText.Split(new[] { '\r', '\n' },
+                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .LastOrDefault()
+                    ?? outputText.Trim();
+                if (detail.Length == 0) detail = $"exit code {process.ExitCode}";
+                if (detail.Length > 400) detail = detail[..400] + "…";
+                throw new InvalidDataException(UiText.F("error.model.process", detail, logPath));
+            }
         }
         finally { Gate.Release(); }
     }

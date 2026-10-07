@@ -88,12 +88,21 @@ public static class GameInstaller
         return path;
     }
 
+    private static bool SameFileContents(string left, string right)
+    {
+        if (new FileInfo(left).Length != new FileInfo(right).Length) return false;
+        using var leftStream = File.OpenRead(left);
+        using var rightStream = File.OpenRead(right);
+        return SHA256.HashData(leftStream).SequenceEqual(SHA256.HashData(rightStream));
+    }
+
     public static string Install(string package, string gameRoot, string backupRoot, Func<bool>? runningCheck = null)
     {
         gameRoot = ValidateGameRoot(gameRoot);
         runningCheck ??= () => IsGameRunning(gameRoot);
         if (runningCheck()) throw new InvalidOperationException(UiText.T("error.game.running"));
         ValidateInstallTarget(gameRoot);
+        ValidateGameRootWritable(gameRoot);
         var edition = GameEditionInfo.Detect(gameRoot);
         package = Path.GetFullPath(package);
         var requiredPaths = edition == GameEdition.Second
@@ -151,29 +160,96 @@ public static class GameInstaller
         }
         var manifest=Path.Combine(backup,"installation.json");
         var installedHashes=files.ToDictionary(r=>r,r=>Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(SafePath(package,r)))));
-        void Record(string state) => File.WriteAllText(manifest,JsonSerializer.Serialize(new { gameRoot, package, state, files=existed,installedHashes },new JsonSerializerOptions { WriteIndented=true }));
+        void Record(string state,string? note=null) => File.WriteAllText(manifest,JsonSerializer.Serialize(new { gameRoot, package, state, note, files=existed,installedHashes },new JsonSerializerOptions { WriteIndented=true }));
         Record("backed-up");
+        // A file whose bytes already match the package must not be rewritten: on a
+        // locked or protected copy the write fails even though nothing has to
+        // change, and the rollback then fails on the same file. Verify and skip.
+        var identical=files.Where(r=>existed[r]
+            && string.Equals(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(SafePath(gameRoot,r)))),installedHashes[r],StringComparison.OrdinalIgnoreCase)).ToList();
         var touched=new List<string>();
+        var createdDirectories=new List<string>();
         try {
             foreach(var relative in files) {
                 if(runningCheck()) throw new IOException(UiText.T("error.install.interrupted"));
-                var target=SafePath(gameRoot,relative); Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                touched.Add(relative); File.Copy(Path.Combine(package,relative),target,true);
-                using var a=File.OpenRead(Path.Combine(package,relative)); using var b=File.OpenRead(target);
+                var source=SafePath(package,relative); var target=SafePath(gameRoot,relative);
+                if(identical.Contains(relative)) continue;
+                var directory=Path.GetDirectoryName(target)!;
+                if(!Directory.Exists(directory)) { Directory.CreateDirectory(directory); createdDirectories.Add(directory); }
+                touched.Add(relative); File.Copy(source,target,true);
+                using var a=File.OpenRead(source); using var b=File.OpenRead(target);
                 if(!SHA256.HashData(a).SequenceEqual(SHA256.HashData(b))) throw new IOException(UiText.F("error.install.verify", relative));
             }
-            Record("installed");
+            var note=identical.Count==0 ? null
+                : UiText.F("install.note.identical", identical.Count);
+            Record("installed",note);
             return backup;
         } catch(Exception failure) {
             var errors=new List<Exception>();
             foreach(var relative in touched.AsEnumerable().Reverse()) try {
                 var target=SafePath(gameRoot,relative);
-                if(existed[relative]) File.Copy(Path.Combine(backup,relative),target,true);
-                else File.Delete(target);
+                if(existed[relative]) {
+                    var saved=SafePath(backup,relative);
+                    if(!File.Exists(target) || !SameFileContents(saved,target)) File.Copy(saved,target,true);
+                }
+                else if(File.Exists(target)) File.Delete(target);
             } catch(Exception error) { errors.Add(error); }
-            Record(errors.Count==0 ? "rolled-back" : "rollback-incomplete");
+            Record(errors.Count==0 ? "rolled-back" : "rollback-incomplete",
+                identical.Count==0 ? null : UiText.F("install.note.identical", identical.Count));
+            if(errors.Count==0) RemoveEmptyDirectories(createdDirectories);
             if(errors.Count>0) throw new AggregateException(UiText.F("error.install.rollback.incomplete", backup),errors.Prepend(failure));
             throw new IOException(UiText.F("error.install.rollback", backup),failure);
+        }
+    }
+
+    /// <summary>
+    /// Fails up front with a clear message when the game directory refuses new
+    /// files (for example when the studio runs inside a restricted sandbox, under
+    /// Controlled Folder Access, or in a Steam library owned by another account)
+    /// instead of failing halfway through the copy list.
+    /// </summary>
+    public static void ValidateGameRootWritable(string gameRoot, Func<bool>? runningCheck = null)
+    {
+        runningCheck ??= () => IsGameRunning(gameRoot);
+        var probe = Path.Combine(gameRoot, ".sky-studio-write-probe-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            using (var stream = new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                stream.WriteByte(0x53);
+            File.Delete(probe);
+        }
+        catch (UnauthorizedAccessException error)
+        {
+            throw new IOException(UiText.F("error.game.root.readonly", gameRoot), error);
+        }
+        catch (IOException error) when (runningCheck())
+        {
+            throw new IOException(UiText.T("error.install.interrupted"), error);
+        }
+        catch (IOException error)
+        {
+            throw new IOException(UiText.F("error.game.root.readonly", gameRoot), error);
+        }
+        finally
+        {
+            try { if (File.Exists(probe)) File.Delete(probe); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>Removes directories this installation created, deepest first, once they are empty.</summary>
+    private static void RemoveEmptyDirectories(IEnumerable<string> directories)
+    {
+        foreach (var directory in directories
+            .Where(Directory.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(path => path.Length))
+        {
+            try
+            {
+                if (!Directory.EnumerateFileSystemEntries(directory).Any()) Directory.Delete(directory);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 
@@ -199,6 +275,12 @@ public static class GameInstaller
             try {
                 foreach(var pair in originals) {
                     if(runningCheck())throw new IOException(UiText.T("error.restore.interrupted"));
+                    // A matching original was never changed by this installation.
+                    // Skipping it also allows Undo while an unchanged loader is
+                    // protected against writes by another process.
+                    if((pair.Value is null && current[pair.Key] is null)
+                        || (pair.Value is not null && current[pair.Key] is not null
+                            && pair.Value.SequenceEqual(current[pair.Key]!))) continue;
                     var target=SafePath(gameRoot,pair.Key);touched.Add(pair.Key);
                     if(pair.Value is null)File.Delete(target);else File.WriteAllBytes(target,pair.Value);
                 }

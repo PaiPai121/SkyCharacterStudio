@@ -1,3 +1,11 @@
+# 0.3.10 beta
+
+- Reset to overall-width preview when selecting a different character or costume, then enable chest editing only if that exact model passes geometry detection. This prevents unsupported 2nd Chapter costumes such as `chr5002_c74` from inheriting the previous model's chest mode and failing to preview.
+- Show the final model-processing error line in the preview pane and keep the complete traceback in `model-process.log`. Run bundled Python in UTF-8 mode so diagnostic text stays readable on Windows.
+- Skip installation and Undo writes for files whose contents already match the requested state. This avoids overwriting an unchanged, write-protected loader while applying or restoring a different model. Keep backups and rollback for files that do change.
+- Exclude generated cache files from the WPF project's source glob so local diagnostic builds cannot introduce duplicate assembly attributes.
+- These fixes have isolated preview and installation regression checks; appearance and animation in the running games remain to be checked.
+
 # 0.3.9 beta
 
 - Treat the age catalogs as a deny-list of minors in both editions: a model the catalog does not list is now a "defaulted adult" and can use chest editing, labelled "年龄目录未登记 · 默认成年" / "Not listed in the age catalog · adult by default". Every catalogued minor (Estelle, Joshua, Kloe, Tita, Josette, the child models, `chr5345` at 11) stays restricted to width editing.

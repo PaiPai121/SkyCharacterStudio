@@ -277,6 +277,44 @@ internal static class SecondChapterCheck
         Pump(Ready, "adult costume preview");
         if (!((ComboBoxItem)window.FindName("ChestModeItem")).IsEnabled)
             throw new InvalidDataException("Adult costume preview did not enable chest editing");
+        var modeSelector = (ComboBox)window.FindName("ShapeModeBox");
+        modeSelector.SelectedItem = window.FindName("ChestModeItem");
+        Pump(Ready, "adult costume chest preview");
+        if (modeSelector.SelectedIndex != 1)
+            throw new InvalidDataException("An adult costume with detected chest geometry lost chest mode");
+        var unsupportedCostume = records.Single(record => record.ModelId == "chr5002_c74");
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = unsupportedCostume;
+        Pump(Ready, "unsupported costume width fallback");
+        if (modeSelector.SelectedIndex != 0
+            || ((ComboBoxItem)window.FindName("ChestModeItem")).IsEnabled
+            || ((LiveModelView)window.FindName("LiveView")).Geometry.Count == 0)
+            throw new InvalidDataException("Switching from chest mode hid a costume without chest geometry");
+        var unsupportedMetaPath = Path.Combine(outputRootForPreview(), "cache", "models", "Second",
+            unsupportedCostume.ModelId, "width", "model-meta.json");
+        using (var unsupportedMeta = System.Text.Json.JsonDocument.Parse(File.ReadAllText(unsupportedMetaPath)))
+        {
+            if (unsupportedMeta.RootElement.GetProperty("chest_detection").GetProperty("can_deform").GetBoolean())
+                throw new InvalidDataException("Unsupported costume unexpectedly passed chest detection");
+        }
+        var unsupportedChestOutput = Path.Combine(outputRootForPreview(), "cache", "models", "Second",
+            unsupportedCostume.ModelId, "chest-rejection-check");
+        var rejectedChest = AutoModelService.Run(game, unsupportedCostume.ModelId, "chest",
+            unsupportedChestOutput, isBaseGameCharacter: true, modelSource: archive.ArchivePath,
+            imageArchive: imagePac);
+        Pump(() => rejectedChest.IsCompleted, "unsupported costume chest rejection");
+        try
+        {
+            rejectedChest.GetAwaiter().GetResult();
+            throw new InvalidDataException("Unsupported costume unexpectedly passed chest processing");
+        }
+        catch (InvalidDataException error) when (error.Message.Contains("未发现胸部骨骼标记", StringComparison.Ordinal))
+        {
+            if (error.Message.Contains("Traceback", StringComparison.Ordinal))
+                throw new InvalidDataException("The preview pane would show the Python traceback");
+            var log = File.ReadAllText(Path.Combine(unsupportedChestOutput, "model-process.log"));
+            if (log.Contains('\uFFFD') || !log.Contains("不能可靠调整", StringComparison.Ordinal))
+                throw new InvalidDataException("Chest processing diagnostic was not decoded as UTF-8");
+        }
         var costumeExport = ExportService.ExportAsync(adultCostume, archive,
             outputRootForPreview(), 137, false, CancellationToken.None, "chest", false);
         Pump(() => costumeExport.IsCompleted, "adult costume chest export");

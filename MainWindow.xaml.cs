@@ -291,7 +291,9 @@ public partial class MainWindow : Window
         _selectedCharacter=record; _showAdjustedPreview=true;
         ChestModeItem.IsEnabled=false;
         ChestModeItem.ToolTip=UiText.T("mode.detecting");
-        if(ShapeModeBox.SelectedIndex<0 || !record.AdultShapeEligible && CurrentMode=="chest") {
+        // Chest capability belongs to each model's geometry. Load a newly
+        // selected model in width mode before offering chest editing.
+        if(ShapeModeBox.SelectedIndex<0 || CurrentMode=="chest") {
             ShapeModeBox.SelectedIndex=0; // SelectionChanged initiates the load.
             return;
         }
