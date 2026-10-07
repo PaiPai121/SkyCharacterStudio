@@ -175,6 +175,8 @@ function Invoke-SecondInstallCheck {
 }
 
 $root = (Get-Location).Path
+. (Join-Path $root 'release\BuildInputs.ps1')
+Assert-StudioCleanSource -Repository $root
 $projectFile = Join-Path $root 'SkyCharacterStudio.csproj'
 $packageScript = Join-Path $root 'tools\package_release.py'
 $iconScript = Join-Path $root 'tools\make_app_icon.py'
@@ -183,15 +185,14 @@ $iconOutput = Join-Path $root 'assets\SkyCharacterStudio.ico'
 $nativeSource = Join-Path $root 'runtime-source\tools'
 $datSource = Join-Path $root 'runtime-source\vendor\ed9_dat\ed9_dat.cpp'
 $nativeInclude = Join-Path $root 'runtime-source\vendor\ed9modmanager'
-$sibling = if (-not [string]::IsNullOrWhiteSpace($ToolchainRoot)) {
-    [IO.Path]::GetFullPath($ToolchainRoot)
-} elseif (-not [string]::IsNullOrWhiteSpace($env:SKY_STUDIO_TOOLCHAIN)) {
-    [IO.Path]::GetFullPath($env:SKY_STUDIO_TOOLCHAIN)
-} else {
-    [IO.Path]::GetFullPath((Join-Path $root '..\Sky1st-Scherazard-Mod'))
-}
+$sibling = Resolve-StudioToolchain -Repository $root -Override $ToolchainRoot
 $env:SKY_STUDIO_TOOLCHAIN = $sibling
 $python = Join-Path $sibling '.venv\Scripts\python.exe'
+$gameTargets = if ($SkipSmoke -and [string]::IsNullOrWhiteSpace($GameRoot)) { @() }
+    else { @(Get-StudioGameTargets -Repository $root -Override $GameRoot) }
+if (-not $SkipSmoke -and $gameTargets.Count -eq 0) {
+    throw '找不到已安装的 1st 或 2nd 游戏目录；请用 -GameRoot 指定，或先安装游戏。默认不会跳过最终包游戏检查。'
+}
 $nugetPackages = if (-not [string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
     Join-Path $env:USERPROFILE '.nuget\packages'
 } else { '' }
@@ -241,6 +242,10 @@ if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {
 }
 $zipPath = Join-Path $ArtifactDirectory "SkyCharacterStudio-$version-$RuntimeIdentifier.zip"
 $completed = $false
+$gameDirectoryPath = Join-Path $root 'game-directory.txt'
+$gameDirectoryBefore = if (Test-Path -LiteralPath $gameDirectoryPath -PathType Leaf) {
+    [IO.File]::ReadAllBytes($gameDirectoryPath)
+} else { $null }
 
 try {
     if (Test-Path -LiteralPath $zipPath) { throw "此版本发布包已经存在，请先更新版本号：$zipPath" }
@@ -303,76 +308,65 @@ try {
     ) '按白名单组装便携发布目录'
     $manifest = Test-PortableDirectory $portableDirectory $version
 
-    $gameRoot = if (-not [string]::IsNullOrWhiteSpace($GameRoot)) { [IO.Path]::GetFullPath($GameRoot) } else { '' }
-    $gameDirectoryFile = Join-Path $root 'game-directory.txt'
-    if ([string]::IsNullOrWhiteSpace($gameRoot) -and (Test-Path -LiteralPath $gameDirectoryFile)) {
-        $gameRoot = (Get-Content -LiteralPath $gameDirectoryFile -Raw -Encoding UTF8).Trim()
-    }
-    $smokeEdition = if (-not [string]::IsNullOrWhiteSpace($gameRoot) -and
-        (Test-Path -LiteralPath (Join-Path $gameRoot 'sora_1st.exe'))) { 'first' }
-        elseif (-not [string]::IsNullOrWhiteSpace($gameRoot) -and
-        (Test-Path -LiteralPath (Join-Path $gameRoot 'sora_2nd.exe'))) { 'second' }
-        else { '' }
-    if (-not $SkipSmoke) {
-        if (-not [string]::IsNullOrWhiteSpace($smokeEdition)) {
-            $smokeName = if ($smokeEdition -eq 'second') { 'SecondChapterCheck' } else { 'PortableReleaseCheck' }
-            $smokeProject = Join-Path $root "smoke\$smokeName.csproj"
-            Require-Path $smokeProject '便携发布离线检查项目'
-            $smokeRestore = @('restore', $smokeProject, '--runtime', $RuntimeIdentifier, '--ignore-failed-sources', '-p:NuGetAudit=false')
-            if (Test-Path -LiteralPath $nugetPackages) {
-                $smokeRestore += "-p:RestorePackagesPath=$nugetPackages"
-            }
-            Invoke-Checked $dotnet $smokeRestore '还原便携发布离线检查'
-            $smokeBuild = @(
-                'build', $smokeProject,
-                '--configuration', $Configuration,
-                '--no-restore',
-                ('-p:StudioReference=' + (Join-Path $buildDirectory 'SkyCharacterStudio.dll')),
-                ('-p:OutputPath=' + $smokeDirectory)
-            )
-            Invoke-Checked $dotnet $smokeBuild '运行前构建便携发布离线检查'
-            foreach ($directoryName in @('assets', 'runtime', 'tools')) {
-                Copy-Item -LiteralPath (Join-Path $portableDirectory $directoryName) -Destination (Join-Path $smokeDirectory $directoryName) -Recurse -Force
-            }
-            $smokeExe = Join-Path $smokeDirectory "$smokeName.exe"
-            if (-not (Test-Path -LiteralPath $smokeExe)) {
-                throw "离线检查程序未生成：$smokeExe"
-            }
-            $previousGameEnv = [Environment]::GetEnvironmentVariable('SKY1ST_GAME_ROOT', 'Process')
-            $previousSecondGameEnv = [Environment]::GetEnvironmentVariable('SKY2ND_GAME_ROOT', 'Process')
-            $previousSmokeEnv = [Environment]::GetEnvironmentVariable('SKY1ST_SMOKE_ROOT', 'Process')
-            try {
-                $env:SKY1ST_GAME_ROOT = $gameRoot
-                $env:SKY2ND_GAME_ROOT = $gameRoot
-                $env:SKY1ST_SMOKE_ROOT = $smokeDirectory
-                Invoke-Checked $smokeExe @() '执行 WPF、导出、安装回滚离线检查'
-            } finally {
-                if ($null -eq $previousGameEnv) {
-                    Remove-Item Env:SKY1ST_GAME_ROOT -ErrorAction SilentlyContinue
-                } else {
-                    $env:SKY1ST_GAME_ROOT = $previousGameEnv
-                }
-                if ($null -eq $previousSecondGameEnv) {
-                    Remove-Item Env:SKY2ND_GAME_ROOT -ErrorAction SilentlyContinue
-                } else {
-                    $env:SKY2ND_GAME_ROOT = $previousSecondGameEnv
-                }
-                if ($null -eq $previousSmokeEnv) {
-                    Remove-Item Env:SKY1ST_SMOKE_ROOT -ErrorAction SilentlyContinue
-                } else {
-                    $env:SKY1ST_SMOKE_ROOT = $previousSmokeEnv
-                }
-            }
-        } else {
-            Write-Warning '未找到 game-directory.txt 中的可用游戏目录，跳过 WPF 离线检查；发布目录结构检查仍已执行。'
+    if ($SkipSmoke) { Write-Host '已按参数跳过 WPF 离线检查。' }
+    foreach ($target in $gameTargets) {
+        $gameRoot = $target.Root
+        $smokeEdition = $target.Edition
+        $smokeDirectory = Join-Path $runRoot "smoke-$smokeEdition"
+        Write-Host "`n离线验证 $smokeEdition：$gameRoot"
+        $smokeName = if ($smokeEdition -eq 'second') { 'SecondChapterCheck' } else { 'PortableReleaseCheck' }
+        $smokeProject = Join-Path $root "smoke\$smokeName.csproj"
+        Require-Path $smokeProject '便携发布离线检查项目'
+        $smokeRestore = @('restore', $smokeProject, '--runtime', $RuntimeIdentifier, '--ignore-failed-sources', '-p:NuGetAudit=false')
+        if (Test-Path -LiteralPath $nugetPackages) {
+            $smokeRestore += "-p:RestorePackagesPath=$nugetPackages"
         }
-    } else {
-        Write-Host '已按参数跳过 WPF 离线检查。'
-    }
-    if (-not $SkipSmoke -and $smokeEdition -eq 'second') {
-        Invoke-SecondInstallCheck -Reference (Join-Path $buildDirectory 'SkyCharacterStudio.dll') `
-            -OutputDirectory (Join-Path $runRoot 'second-install-smoke') `
-            -PortableDirectory $portableDirectory -GameDirectory $gameRoot
+        Invoke-Checked $dotnet $smokeRestore '还原便携发布离线检查'
+        $smokeBuild = @(
+            'build', $smokeProject,
+            '--configuration', $Configuration,
+            '--no-restore',
+            ('-p:StudioReference=' + (Join-Path $buildDirectory 'SkyCharacterStudio.dll')),
+            ('-p:OutputPath=' + $smokeDirectory)
+        )
+        Invoke-Checked $dotnet $smokeBuild '运行前构建便携发布离线检查'
+        foreach ($directoryName in @('assets', 'runtime', 'tools')) {
+            Copy-Item -LiteralPath (Join-Path $portableDirectory $directoryName) -Destination (Join-Path $smokeDirectory $directoryName) -Recurse -Force
+        }
+        $smokeExe = Join-Path $smokeDirectory "$smokeName.exe"
+        if (-not (Test-Path -LiteralPath $smokeExe)) {
+            throw "离线检查程序未生成：$smokeExe"
+        }
+        $previousGameEnv = [Environment]::GetEnvironmentVariable('SKY1ST_GAME_ROOT', 'Process')
+        $previousSecondGameEnv = [Environment]::GetEnvironmentVariable('SKY2ND_GAME_ROOT', 'Process')
+        $previousSmokeEnv = [Environment]::GetEnvironmentVariable('SKY1ST_SMOKE_ROOT', 'Process')
+        try {
+            $env:SKY1ST_GAME_ROOT = $gameRoot
+            $env:SKY2ND_GAME_ROOT = $gameRoot
+            $env:SKY1ST_SMOKE_ROOT = $smokeDirectory
+            Invoke-Checked $smokeExe @() '执行 WPF、导出、安装回滚离线检查'
+        } finally {
+            if ($null -eq $previousGameEnv) {
+                Remove-Item Env:SKY1ST_GAME_ROOT -ErrorAction SilentlyContinue
+            } else {
+                $env:SKY1ST_GAME_ROOT = $previousGameEnv
+            }
+            if ($null -eq $previousSecondGameEnv) {
+                Remove-Item Env:SKY2ND_GAME_ROOT -ErrorAction SilentlyContinue
+            } else {
+                $env:SKY2ND_GAME_ROOT = $previousSecondGameEnv
+            }
+            if ($null -eq $previousSmokeEnv) {
+                Remove-Item Env:SKY1ST_SMOKE_ROOT -ErrorAction SilentlyContinue
+            } else {
+                $env:SKY1ST_SMOKE_ROOT = $previousSmokeEnv
+            }
+        }
+        if ($smokeEdition -eq 'second') {
+            Invoke-SecondInstallCheck -Reference (Join-Path $buildDirectory 'SkyCharacterStudio.dll') `
+                -OutputDirectory (Join-Path $runRoot 'second-install-smoke') `
+                -PortableDirectory $portableDirectory -GameDirectory $gameRoot
+        }
     }
 
     Invoke-Checked $python @(
@@ -398,23 +392,37 @@ try {
         throw "ZIP 带入游戏资源：$($badEntries[0].FullName)"
     }
 
-    Write-Host "`n==> 从最终 ZIP 独立解压并验证启动程序"
+    Write-Host "`n==> 从最终 ZIP 独立解压"
     Expand-Archive -LiteralPath $candidateZip -DestinationPath $cleanDirectory
     $null = Test-PortableDirectory $cleanDirectory $version
+    Write-Host "`n==> 验证独立解压包的启动程序（5 秒）"
     $launcherPath = Join-Path $cleanDirectory 'SkyCharacterStudio.exe'
-    $launcher = Start-Process -FilePath $launcherPath -WorkingDirectory $cleanDirectory -WindowStyle Hidden -PassThru
+    $startInfo = [Diagnostics.ProcessStartInfo]::new($launcherPath)
+    $startInfo.WorkingDirectory = $cleanDirectory
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+    $launcher = [Diagnostics.Process]::Start($startInfo)
+    if ($null -eq $launcher) { throw "最终包启动程序未能启动：$launcherPath" }
     try {
         Start-Sleep -Seconds 5
         $launcher.Refresh()
         if ($launcher.HasExited) { throw "最终包启动程序过早退出，退出码 $($launcher.ExitCode)" }
     } finally {
         $launcher.Refresh()
-        if (-not $launcher.HasExited) { Stop-Process -Id $launcher.Id -Force }
+        if (-not $launcher.HasExited) {
+            $launcher.Kill()
+            if (-not $launcher.WaitForExit(5000)) { throw "最终包启动程序未能在 5 秒内停止：$($launcher.Id)" }
+        }
+        $launcher.Dispose()
     }
 
-    if (-not $SkipSmoke -and -not [string]::IsNullOrWhiteSpace($smokeEdition)) {
-        Write-Host "`n==> 从独立解压目录执行完整便携流程"
-        $cleanSmokeDirectory = Join-Path $cleanDirectory '_smoke'
+    foreach ($target in $gameTargets) {
+        $gameRoot = $target.Root
+        $smokeEdition = $target.Edition
+        $smokeName = if ($smokeEdition -eq 'second') { 'SecondChapterCheck' } else { 'PortableReleaseCheck' }
+        Write-Host "`n==> 从独立解压目录执行 $smokeEdition 完整便携流程"
+        $cleanSmokeDirectory = Join-Path $cleanDirectory "_smoke-$smokeEdition"
         $cleanSmokeBuild = @(
             'build', (Join-Path $root "smoke\$smokeName.csproj"),
             '--configuration', $Configuration, '--no-restore',
@@ -441,11 +449,11 @@ try {
             if ($null -eq $previousSmokeEnv) { Remove-Item Env:SKY1ST_SMOKE_ROOT -ErrorAction SilentlyContinue }
             else { $env:SKY1ST_SMOKE_ROOT = $previousSmokeEnv }
         }
-    }
-    if (-not $SkipSmoke -and $smokeEdition -eq 'second') {
-        Invoke-SecondInstallCheck -Reference (Join-Path $cleanDirectory 'SkyCharacterStudio.dll') `
-            -OutputDirectory (Join-Path $cleanDirectory '_second_install_smoke') `
-            -PortableDirectory $cleanDirectory -GameDirectory $gameRoot
+        if ($smokeEdition -eq 'second') {
+            Invoke-SecondInstallCheck -Reference (Join-Path $cleanDirectory 'SkyCharacterStudio.dll') `
+                -OutputDirectory (Join-Path $cleanDirectory '_second_install_smoke') `
+                -PortableDirectory $cleanDirectory -GameDirectory $gameRoot
+        }
     }
 
     Move-Item -LiteralPath $candidateZip -Destination $zipPath
@@ -461,6 +469,19 @@ try {
         Write-Host "临时目录（已保留）：$runRoot"
     }
 } finally {
+    if ($null -eq $gameDirectoryBefore) {
+        if (Test-Path -LiteralPath $gameDirectoryPath -PathType Leaf) {
+            Remove-Item -LiteralPath $gameDirectoryPath -Force
+        }
+    } else {
+        $currentGameDirectory = if (Test-Path -LiteralPath $gameDirectoryPath -PathType Leaf) {
+            [IO.File]::ReadAllBytes($gameDirectoryPath)
+        } else { $null }
+        if (-not [Collections.StructuralComparisons]::StructuralEqualityComparer.Equals(
+            $gameDirectoryBefore, $currentGameDirectory)) {
+            [IO.File]::WriteAllBytes($gameDirectoryPath, $gameDirectoryBefore)
+        }
+    }
     if ($completed -and -not $KeepStaging) {
         $verifiedStageRoot = [IO.Path]::GetFullPath($stageRoot).TrimEnd('\') + '\'
         $verifiedRunRoot = [IO.Path]::GetFullPath($runRoot)

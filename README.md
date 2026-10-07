@@ -17,7 +17,7 @@
 
 开发：`tools/auto_model.py` 在源码工作区依赖 Kuro MDL Tool 解析器和 Python 环境；`build-release.ps1` 会将依赖复制到便携包。可用 `SKY_STUDIO_TOOLCHAIN` 指定解析器工具链位置。
 
-开发者打包：在项目根目录双击 `BuildRelease.cmd`，或运行 `powershell -ExecutionPolicy Bypass -File .\build-release.ps1`。打包者需先把与 `assets/loader-integrity.json` 核对一致的 2nd 加载器放入 `runtime-source/second-loader/xinput1_4.dll`，或使用 `-SecondLoaderPath` 指定文件；构建时会按大小和 SHA-256 校验并装入便携包，玩家无需提供它。脚本会先从 `assets\SkyCharacterStudio.png` 自动生成多尺寸 EXE 图标，然后还原并发布自包含 win-x64 工作台、重新编译 DAT 构建器和两个原生插件、按文件清单组装便携目录、检查目录中没有模型/PAC 等游戏资源，再生成 `release-artifacts\SkyCharacterStudio-<版本>-win-x64.zip` 及同名 `.sha256`。如果 `game-directory.txt` 指向可用的游戏目录，还会运行不启动游戏的 WPF/导出/安装回滚离线检查；没有游戏目录时只跳过这一项。`-SkipSmoke` 可跳过离线检查，`-KeepStaging` 可保留本次 `release-stage\pack-*` 临时目录以便审阅。
+开发者打包：在项目根目录双击 `BuildRelease.cmd`，或运行 `powershell -ExecutionPolicy Bypass -File .\build-release.ps1`。脚本要求源码工作树干净，自动在当前检出及主工作树的同级目录查找 `Sky1st-Scherazard-Mod` 工具链，并从 Steam 安装记录查找 1st 和 2nd；`game-directory.txt` 可指定优先使用的游戏目录。找不到工具链或游戏时会报错，可分别用 `-ToolchainRoot` 和 `-GameRoot` 明确指定。打包者需先把与 `assets/loader-integrity.json` 核对一致的 2nd 加载器放入 `runtime-source/second-loader/xinput1_4.dll`，或使用 `-SecondLoaderPath` 指定文件；构建时会按大小和 SHA-256 校验并装入便携包，玩家无需提供它。脚本会从 `assets\SkyCharacterStudio.png` 生成 EXE 图标，发布自包含 win-x64 工作台，重新编译 DAT 构建器和两个原生插件，按文件清单组装便携目录，排除模型/PAC 等游戏资源，再生成 `release-artifacts\SkyCharacterStudio-<版本>-win-x64.zip` 及同名 `.sha256`。默认对找到的每款游戏分别运行不启动游戏的 WPF、导出与安装回滚检查，并从最终 ZIP 独立解压后再验一次；`-SkipSmoke` 可明确跳过游戏检查，`-KeepStaging` 可保留 `release-stage\pack-*` 临时目录供审阅。
 
 1st 的已核对 EXE 哈希在 `assets/first-install-builds.json`；2nd 不读取此清单。`assets/loader-integrity.json` 只校验随包提供的 2nd 加载器，不能用来推断游戏版本兼容性。
 
