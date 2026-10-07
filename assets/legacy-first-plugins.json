@@ -1,0 +1,14 @@
+{
+  "game": "first",
+  "retireOnVersion": "1.0.7.0",
+  "files": [
+    {
+      "path": "ED9Loader/plugins/ScriptInject.dll",
+      "sha256": "7CE50DF748C9215EA7D4D8CC70537518253AAE718E57FF5FFB479A9B054F0C0F"
+    },
+    {
+      "path": "ED9Loader/plugins/EventStarter.dll",
+      "sha256": "CA79422DF7FF487503A85E5458D92B95599EB3A93311C66F1562147A9FE115AB"
+    }
+  ]
+}

@@ -17,9 +17,13 @@ public sealed class CharacterRecord
 {
     public string ModelId { get; init; } = "";
     public string DisplayName { get; init; } = "";
-    public string LocalizedName => UiText.CharacterName(ModelId, DisplayName)
-        + (Edition == GameEdition.Second && !DisplayName.StartsWith("未登记名称", StringComparison.Ordinal)
-            ? UiText.T("second.name.tag") : "");
+    public string ResourceName { get; init; } = "";
+    public CostumeNameInfo? CostumeName { get; init; }
+    public string LocalizedName => Edition == GameEdition.Second && CostumeName is not null
+        ? CostumeName.LocalizedName + UiText.T("second.costume.tag")
+        : UiText.CharacterName(ModelId, DisplayName)
+            + (Edition == GameEdition.Second && !DisplayName.StartsWith("未登记名称", StringComparison.Ordinal)
+                ? UiText.T("second.name.tag") : "");
     public string NameSourceKey { get; init; } = "";
     public int NameAliasCount { get; init; }
     public PacEntry ModelEntry { get; init; } = new();

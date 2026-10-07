@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private List<CharacterRecord> _allCharacters = new();
     private PacArchive? _modelArchive;
     private PacArchive? _imageArchive;
+    private RecentGameModelUse? _recentGameModels;
     private CharacterRecord? _selectedCharacter;
     private int _previewGeneration;
     private CancellationTokenSource? _previewCancellation;
@@ -24,6 +25,7 @@ public partial class MainWindow : Window
     private readonly Stopwatch _previewClock = new();
     private bool _isScanning;
     private GameEdition? _edition;
+    private bool _firstSummonSupported;
     private string? _scannedGameRoot;
     private bool _showAdjustedPreview;
     private bool _applyingLanguage;
@@ -98,6 +100,7 @@ public partial class MainWindow : Window
         InstallButton.Content = UiText.T("install");
         InstallButton.ToolTip = UiText.T("install.tooltip");
         SummonTestingBox.Content = UiText.T("summon");
+        SummonTestingBox.ToolTip = _firstSummonSupported ? null : UiText.T("summon.unavailable");
         RestoreButton.Content = UiText.T("restore");
         if (_statusKey is not null)
             ApplyStatusText(UiText.F(_statusKey, _statusArgs), _statusError);
@@ -137,6 +140,7 @@ public partial class MainWindow : Window
         _modelReady = false;
         _modelArchive = null;
         _imageArchive = null;
+        _recentGameModels = null;
         _selectedCharacter = null;
         _allCharacters.Clear();
         _visibleCharacters.Clear();
@@ -157,6 +161,7 @@ public partial class MainWindow : Window
         if (TargetGameText is null || GamePathBox is null) return;
         var selected = GamePathBox.Text.Trim();
         _edition = null;
+        _firstSummonSupported = false;
         var key = "game.target.none";
         if (!string.IsNullOrWhiteSpace(selected))
         {
@@ -170,7 +175,7 @@ public partial class MainWindow : Window
         }
         TargetGameText.Text = UiText.T(key);
         TargetGameText.ToolTip = selected;
-        if (_edition == GameEdition.Second && SummonTestingBox is not null)
+        if (SummonTestingBox is not null)
             SummonTestingBox.IsChecked = false;
     }
 
@@ -184,6 +189,7 @@ public partial class MainWindow : Window
         _modelReady = false;
         _modelArchive = null;
         _imageArchive = null;
+        _recentGameModels = null;
         _selectedCharacter = null;
         _allCharacters.Clear();
         _visibleCharacters.Clear();
@@ -221,12 +227,21 @@ public partial class MainWindow : Window
                     "asset/dx11/image", "asset/common/image");
                 var characters = CharacterScanner.Build(model, modelInfo, image);
                 if (characters.Count == 0) throw new InvalidDataException(UiText.T("error.model.none"));
-                return (model, image, characters);
+                var recentModels = edition == GameEdition.Second ? RecentGameModelLog.Read(scanRoot) : null;
+                return (model, image, characters, recentModels);
             });
             _modelArchive = result.model;
             _imageArchive = result.image;
+            _recentGameModels = result.recentModels;
             _edition = edition;
-            if (edition == GameEdition.Second) SummonTestingBox.IsChecked = false;
+            _firstSummonSupported = false;
+            if (edition == GameEdition.First)
+            {
+                try { _firstSummonSupported = GameInstaller.GetSupportedFirstVersion(root) == "1.0.5.0"; }
+                catch (Exception error) when (error is IOException or InvalidOperationException or FileNotFoundException) { }
+            }
+            if (!_firstSummonSupported) SummonTestingBox.IsChecked = false;
+            SummonTestingBox.ToolTip = _firstSummonSupported ? null : UiText.T("summon.unavailable");
             InstallButton.Content = UiText.T("install");
             InstallButton.ToolTip = UiText.T("install.tooltip");
             _allCharacters = result.characters;
@@ -240,6 +255,7 @@ public partial class MainWindow : Window
         {
             _modelArchive = null;
             _imageArchive = null;
+            _recentGameModels = null;
             _allCharacters.Clear();
             _visibleCharacters.Clear();
             _selectedCharacter = null;
@@ -263,6 +279,7 @@ public partial class MainWindow : Window
             : _allCharacters.Where(character =>
                 character.ModelId.Contains(filter, StringComparison.OrdinalIgnoreCase)
                 || character.DisplayName.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                || character.ResourceName.Contains(filter, StringComparison.OrdinalIgnoreCase)
                 || character.LocalizedName.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
         _visibleCharacters.Clear();
         foreach (var record in matches) _visibleCharacters.Add(record);
@@ -287,7 +304,10 @@ public partial class MainWindow : Window
     private async void CharacterBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         ++_previewGeneration; CancelPreview(); _modelReady=false; LiveView.Visibility=Visibility.Collapsed;
-        if(CharacterBox.SelectedItem is not CharacterRecord record) {_selectedCharacter=null; ShowPreviewWaiting("preview.waiting"); return;}
+        if(CharacterBox.SelectedItem is not CharacterRecord record) {
+            _selectedCharacter=null; RecentModelButton.Visibility=Visibility.Collapsed;
+            ShowPreviewWaiting("preview.waiting"); return;
+        }
         _selectedCharacter=record; _showAdjustedPreview=true;
         ChestModeItem.IsEnabled=false;
         ChestModeItem.ToolTip=UiText.T("mode.detecting");
@@ -426,11 +446,43 @@ public partial class MainWindow : Window
         SelectedMetaText.Text = UiText.F("model.size", record.ArchiveSizeText)+"\n"
             + UiText.F("model.info", record.ModelInfoEntry is null ? UiText.T("not.found") : UiText.T("found"))+"\n"
             + UiText.F("portrait", record.PreviewText)+"\n"+record.SupportText;
+        UpdateRecentModelButton(record);
         ContourPreview.ModelLabel = record.ModelId.Equals("chr5002", StringComparison.OrdinalIgnoreCase)
             ? UiText.T("scherazard.contour")
             : UiText.F("model.contour", record.LocalizedName);
         PreviewToggleButton.IsEnabled = record.IsSupportedShapeEdit;
         PreviewToggleButton.Content = _showAdjustedPreview ? UiText.T("toggle.original") : UiText.T("toggle.adjusted");
+    }
+
+    private void UpdateRecentModelButton(CharacterRecord record)
+    {
+        RecentModelButton.Visibility = Visibility.Collapsed;
+        RecentModelButton.Tag = null;
+        if (record.Edition != GameEdition.Second || _recentGameModels is null
+            || record.ModelId.Length < 7) return;
+        var characterId = record.ModelId[..7];
+        if (!_recentGameModels.LastRequestedByCharacter.TryGetValue(characterId, out var recentId)) return;
+        var recent = _allCharacters.FirstOrDefault(candidate => candidate.ModelId.Equals(
+            recentId, StringComparison.OrdinalIgnoreCase));
+        if (recent is null) return;
+        var same = record.ModelId.Equals(recentId, StringComparison.OrdinalIgnoreCase);
+        RecentModelButtonText.Text = UiText.F(same ? "second.recent.same" : "second.recent.select",
+            recent.LocalizedName, recentId);
+        RecentModelButton.ToolTip = UiText.F("second.recent.log.time",
+            _recentGameModels.LogTimeLocal.ToString("yyyy-MM-dd HH:mm"));
+        RecentModelButton.Tag = recentId;
+        RecentModelButton.IsEnabled = !same;
+        RecentModelButton.Visibility = Visibility.Visible;
+    }
+
+    private void RecentModelButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (RecentModelButton.Tag is not string modelId) return;
+        var record = _allCharacters.FirstOrDefault(candidate => candidate.ModelId.Equals(
+            modelId, StringComparison.OrdinalIgnoreCase));
+        if (record is null) return;
+        if (!_visibleCharacters.Contains(record)) FilterBox.Text = modelId;
+        CharacterBox.SelectedItem = record;
     }
 
     private void ShapeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -485,15 +537,35 @@ public partial class MainWindow : Window
                 return;
             }
             if (result.RuntimePackagePath is null) throw new InvalidOperationException(UiText.T("error.generation"));
-            var backup=await Task.Run(()=>GameInstaller.Install(result.RuntimePackagePath,target,Path.Combine(_projectRoot,"install-backups")));
+            string backup;
+            try {
+                backup=await Task.Run(()=>GameInstaller.Install(result.RuntimePackagePath,target,Path.Combine(_projectRoot,"install-backups")));
+            } catch(Exception error) when (IsGameWritePermissionFailure(error)) {
+                SetStatus(error.Message + "\n" + UiText.T("error.install.permission.hint"), true);
+                return;
+            }
             if (_selectedCharacter.Edition == GameEdition.Second)
-                SetStatusKey("status.installed.second", false, strength, target, backup);
+                SetStatusKey("status.installed.second", false, strength, target, backup,
+                    _selectedCharacter.LocalizedName, _selectedCharacter.ModelFileName);
             else if (result.SummonEnabled) SetStatusKey("status.installed.summon", false, strength, target, backup);
             else if (result.SummonWarning is not null)
                 SetStatusKey("status.installed.summon.skipped", false, strength, target, backup, result.SummonWarning);
             else SetStatusKey("status.installed.normal", false, strength, target, backup);
         } catch(Exception error) { SetStatus(error.Message,true); }
         finally { SetActionState(true); }
+    }
+
+    private static bool IsGameWritePermissionFailure(Exception error)
+    {
+        // An incomplete rollback needs recovery from its backup before retrying.
+        if (error is AggregateException) return false;
+        for (Exception? current = error; current is not null; current = current.InnerException)
+        {
+            if (current is UnauthorizedAccessException) return true;
+            if (current is IOException && (current.HResult is unchecked((int)0x80070005)
+                or unchecked((int)0x80070522))) return true;
+        }
+        return false;
     }
 
     private async void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -525,7 +597,7 @@ public partial class MainWindow : Window
         ScanButton_ClickEnabled(enabled);
         if(RestoreButton is not null)RestoreButton.IsEnabled=enabled;
         if(ResetShapeButton is not null)ResetShapeButton.IsEnabled=enabled && _modelReady;
-        if(SummonTestingBox is not null)SummonTestingBox.IsEnabled=enabled && _edition == GameEdition.First;
+        if(SummonTestingBox is not null)SummonTestingBox.IsEnabled=enabled && _firstSummonSupported;
         BrowseButton.IsEnabled = enabled;
         GamePathBox.IsEnabled = enabled;
         InstallButton.IsEnabled = enabled && _modelReady;

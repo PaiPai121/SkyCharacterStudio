@@ -235,18 +235,51 @@ internal static class SecondInstallCheck
         uiInstall.GetAwaiter().GetResult();
         if (!File.Exists(targetLoader) || !File.Exists(targetModel)
             || Hash(targetLoader) != loaderHash
-            || !((TextBlock)window.FindName("StatusText")).Text.Contains("已将", StringComparison.Ordinal))
+            || !((TextBlock)window.FindName("StatusText")).Text.Contains(record.ModelFileName, StringComparison.Ordinal)
+            || !((TextBlock)window.FindName("StatusText")).Text.Contains(fakeGame, StringComparison.Ordinal))
             throw new InvalidDataException("The 2nd UI did not install or report success");
         GameInstaller.RestoreLatest(fakeGame, Path.Combine(projectRoot, "install-backups"), () => false);
         if (File.Exists(targetLoader) || File.Exists(targetModel)
             || Hash(fakeExe) != exeHash || Hash(fakePac) != pacHash)
             throw new InvalidDataException("The 2nd UI installation did not restore cleanly");
+        Console.WriteLine("STAGE UI advice after a denied model write");
+        Directory.CreateDirectory(Path.GetDirectoryName(targetModel)!);
+        File.WriteAllBytes(targetModel, sourceArchive.ReadEntry(record.ModelEntry));
+        var originalModelHash = Hash(targetModel);
+        var modelFile = new FileInfo(targetModel);
+        var modelAccess = modelFile.GetAccessControl();
+        var denyModelWrite = new FileSystemAccessRule(
+            WindowsIdentity.GetCurrent().User ?? throw new InvalidOperationException("Current Windows user has no SID"),
+            FileSystemRights.WriteData | FileSystemRights.AppendData,
+            InheritanceFlags.None, PropagationFlags.None, AccessControlType.Deny);
+        modelAccess.AddAccessRule(denyModelWrite);
+        modelFile.SetAccessControl(modelAccess);
+        try
+        {
+            var deniedInstall = (Task)typeof(MainWindow).GetMethod("InstallCurrentAsync", privateInstance)!.Invoke(window, null)!;
+            Pump(() => deniedInstall.IsCompleted, "2nd UI denied install");
+            deniedInstall.GetAwaiter().GetResult();
+            var status = ((TextBlock)window.FindName("StatusText")).Text;
+            if (!status.Contains(targetModel, StringComparison.OrdinalIgnoreCase)
+                || !status.Contains(UiText.T("error.install.permission.hint"), StringComparison.Ordinal)
+                || File.Exists(targetLoader) || Hash(targetModel) != originalModelHash)
+                throw new InvalidDataException("A denied model write did not show permission advice and roll back cleanly");
+        }
+        finally
+        {
+            if (File.Exists(targetModel))
+            {
+                modelAccess.RemoveAccessRuleSpecific(denyModelWrite);
+                new FileInfo(targetModel).SetAccessControl(modelAccess);
+            }
+        }
+        File.Delete(targetModel);
         ((TextBox)window.FindName("GamePathBox")).Text = Path.Combine(testRoot, "not-a-game");
         if (((TextBlock)window.FindName("TargetGameText")).Text != UiText.T("game.target.unknown")
             || ((ComboBox)window.FindName("CharacterBox")).Items.Count != 0
             || ((Button)window.FindName("InstallButton")).IsEnabled)
             throw new InvalidDataException("Changing the game folder retained the old target or models");
         app.Shutdown();
-        Console.WriteLine("PASS 2nd package layout, model bytes, proxy identity, different-hash install, malformed-executable gate, conflict guard, rollback, restore and WPF install path; no real game files written");
+        Console.WriteLine("PASS 2nd package layout, model bytes, proxy identity, different-hash install, malformed-executable gate, conflict guard, rollback, restore, WPF install path and denied-write advice; no real game files written");
     }
 }

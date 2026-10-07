@@ -330,28 +330,114 @@ public static class ExportService
                 throw new IOException(UiText.T("error.second.loader.copy"));
             return (secondPackage, new SummonSetupResult(false, null));
         }
-        var destination = System.IO.Path.Combine(exportRoot, "Scherazard_Runtime");
-        var source = FindRuntimeRoot(projectRoot);
-        SummonSetupResult summonSetup;
-        if (source is not null)
-        {
-            CopyDirectory(source, destination);
-            // Do not reset another character's installed model while applying this one.
-            var packageModels=Path.Combine(destination,"Mod","ScherazardSummon","asset","common","model");
-            Directory.CreateDirectory(packageModels);
-            if(!record.ModelId.Equals("chr5002",StringComparison.OrdinalIgnoreCase))
-                File.Delete(Path.Combine(packageModels,"chr5002.mdl"));
+        // Each export gets a fresh package so stale optional plugins from an
+        // earlier export can never be installed with a later unchecked F8 run.
+        var destination = Path.Combine(exportRoot, "Sora1st_Runtime-" + Guid.NewGuid().ToString("N")[..8]);
+        var source = FindRuntimeRoot(projectRoot)
+            ?? throw new DirectoryNotFoundException(UiText.T("error.no.runtime"));
+        var build = GameInstaller.GetSupportedFirstVersion(game);
+        var redirectName = build == "1.0.7.0" ? "StudioModelRedirect.dll" : "SceneRedirect.dll";
+        var redirectSource = FindFirstRuntimeFile(projectRoot,
+            $"runtime/first-redirect/{build}/{redirectName}");
+        if (redirectSource is null && build == "1.0.5.0")
+            redirectSource = Path.Combine(source, "ED9Loader", "plugins", "SceneRedirect.dll");
+        if (redirectSource is null || !File.Exists(redirectSource))
+            throw new FileNotFoundException($"No verified 1st model redirect for game build {build}.");
 
-            var runtimeModel = System.IO.Path.Combine(destination, "Mod", "ScherazardSummon", "asset", "common", "model", record.ModelFileName);
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(runtimeModel)!);
-            File.Copy(modelPath, runtimeModel, true);
-            summonSetup = await StudioSummonService.ConfigureOptionalAsync(destination,game,record.ModelId,record.LocalizedName,enableSummon);
-            await File.WriteAllTextAsync(System.IO.Path.Combine(destination, "CharacterStudioOverride.txt"),
-                UiText.F("runtime.override", record.LocalizedName, record.ModelId, strength),
-                Encoding.UTF8, cancellationToken);
+        CopyRuntimeFile(Path.Combine(source, "xinput1_4.dll"), destination, "xinput1_4.dll");
+        CopyRuntimeFile(Path.Combine(source, "ED9Loader", "ED9ModManager.exe"), destination,
+            "ED9Loader/ED9ModManager.exe");
+        CopyRuntimeFile(redirectSource, destination, $"ED9Loader/plugins/{redirectName}");
+        CopyRuntimeFile(modelPath, destination,
+            $"Mod/SkyCharacterStudio/asset/common/model/{record.ModelFileName}");
+
+        SummonSetupResult summonSetup;
+        if (enableSummon && build == "1.0.5.0")
+        {
+            var summonRoot = FindFirstRuntimeFile(projectRoot,
+                "runtime/first-summon/ED9Loader/plugins/EventStarter.dll");
+            var scriptSource = FindFirstRuntimeFile(projectRoot,
+                "runtime/first-summon/ED9Loader/plugins/ScriptInject.dll");
+            var iniSource = FindFirstRuntimeFile(projectRoot,
+                "runtime/first-summon/ED9Loader/config/EventStarter.ini");
+            summonRoot ??= Path.Combine(source, "ED9Loader", "plugins", "EventStarter.dll");
+            scriptSource ??= Path.Combine(source, "ED9Loader", "plugins", "ScriptInject.dll");
+            iniSource ??= Path.Combine(source, "ED9Loader", "config", "EventStarter.ini");
+            CopyRuntimeFile(summonRoot, destination, "ED9Loader/plugins/EventStarter.dll");
+            CopyRuntimeFile(scriptSource, destination, "ED9Loader/plugins/ScriptInject.dll");
+            CopyRuntimeFile(iniSource, destination, "ED9Loader/config/EventStarter.ini");
+            CopyRuntimeFile(modelPath, destination,
+                $"Mod/ScherazardSummon/asset/common/model/{record.ModelFileName}");
+            summonSetup = await StudioSummonService.ConfigureOptionalAsync(destination, game,
+                record.ModelId, record.LocalizedName, true);
+            if (!summonSetup.Enabled)
+            {
+                File.Delete(Path.Combine(destination, "ED9Loader", "plugins", "EventStarter.dll"));
+                File.Delete(Path.Combine(destination, "ED9Loader", "plugins", "ScriptInject.dll"));
+                File.Delete(Path.Combine(destination, "Mod", "ScherazardSummon", "add_dat_ini.json"));
+                File.Delete(Path.Combine(destination, "Mod", "ScherazardSummon", "asset", "common",
+                    "model", record.ModelFileName));
+                File.Delete(Path.Combine(destination, "ED9Loader", "config", "EventStarter.ini"));
+                StagePreviousStudioSummonDisable(game, destination);
+            }
         }
-        else throw new DirectoryNotFoundException(UiText.T("error.no.runtime"));
+        else
+        {
+            summonSetup = new SummonSetupResult(false, enableSummon
+                ? $"F8 summon is unavailable for game build {build}; the model will still be installed."
+                : null);
+            StagePreviousStudioSummonDisable(game, destination);
+        }
+        await File.WriteAllTextAsync(Path.Combine(destination, "CharacterStudioOverride.txt"),
+            UiText.F("runtime.override", record.LocalizedName, record.ModelId, strength),
+            Encoding.UTF8, cancellationToken);
         return (destination, summonSetup);
+    }
+
+    private static string? FindFirstRuntimeFile(string projectRoot, string relative)
+    {
+        foreach (var root in new[] { AppContext.BaseDirectory, projectRoot })
+        {
+            var path = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(path)) return path;
+        }
+        if (relative.StartsWith("runtime/", StringComparison.Ordinal))
+        {
+            var sourceRelative = "runtime-source/" + relative["runtime/".Length..];
+            var source = Path.Combine(projectRoot,
+                sourceRelative.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(source)) return source;
+        }
+        return null;
+    }
+
+    private static void CopyRuntimeFile(string source, string destinationRoot, string relative)
+    {
+        if (!File.Exists(source)) throw new FileNotFoundException(UiText.T("error.no.runtime"), source);
+        var destination = Path.Combine(destinationRoot, relative.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        File.Copy(source, destination, true);
+    }
+
+    private static void StagePreviousStudioSummonDisable(string game, string destination)
+    {
+        var selection = Path.Combine(game, "Mod", "ScherazardSummon", "character-studio-selection.json");
+        if (!File.Exists(selection)) return;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(selection));
+            if (!doc.RootElement.TryGetProperty("installedSelection", out var installed) ||
+                installed.ValueKind != JsonValueKind.True ||
+                !doc.RootElement.TryGetProperty("editedEvent", out var edited) ||
+                edited.GetString() != "StudioSummon") return;
+        }
+        catch (JsonException) { return; }
+        var ini = Path.Combine(destination, "ED9Loader", "config", "EventStarter.ini");
+        Directory.CreateDirectory(Path.GetDirectoryName(ini)!);
+        File.WriteAllText(ini, "[Settings]\r\nenabled=0\r\n", Encoding.ASCII);
+        var legacyMod = Path.Combine(destination, "Mod", "ScherazardSummon", "add_dat_ini.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(legacyMod)!);
+        File.WriteAllText(legacyMod, "{\"inject\":[]}", Encoding.ASCII);
     }
 
     private static string? FindMeshRoot(string projectRoot)

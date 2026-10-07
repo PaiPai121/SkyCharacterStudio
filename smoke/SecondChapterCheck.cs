@@ -169,15 +169,35 @@ internal static class SecondChapterCheck
         Directory.CreateDirectory(Path.GetDirectoryName(model)!);
         File.WriteAllBytes(model, sourceArchive.ReadEntry(costume.ModelEntry));
         var originalHash = Hash(model);
+        var recentModel = Path.Combine(root, "asset", "common", "model", "chr5000_c00.mdl");
+        if (!sourceArchive.TryGet("asset/common/model/chr5000_c00.mdl", out var recentSource))
+            throw new InvalidDataException("The observed c00 costume was not present in the model PAC");
+        File.WriteAllBytes(recentModel, sourceArchive.ReadEntry(recentSource));
+        var recentHash = Hash(recentModel);
+        File.WriteAllText(Path.Combine(root, "sora2looseload.log"), """
+            ---- Log Started ----
+            [MOD] Checking standard loose file: 'D:\Game\asset\common\model\chr5000_c00.mdl'
+            """);
 
         ((TextBox)window.FindName("GamePathBox")).Text = root;
         var scan = (Task)typeof(MainWindow).GetMethod("ScanAsync", Private)!.Invoke(window, null)!;
         Pump(() => scan.IsCompleted, "isolated Estelle costume scan");
         scan.GetAwaiter().GetResult();
         var selector = (ComboBox)window.FindName("CharacterBox");
-        var selected = selector.Items.Cast<CharacterRecord>().Single();
+        var selected = selector.Items.Cast<CharacterRecord>().Single(record => record.ModelId == costume.ModelId);
         if (selected.ModelId != costume.ModelId || selected.ModelEntry.LoosePath is null)
             throw new InvalidDataException("The isolated 2nd outfit was not selected from its own MDL");
+        ((TextBox)window.FindName("FilterBox")).Text = costume.ModelId;
+        selector.SelectedItem = selected;
+        var recentButton = (Button)window.FindName("RecentModelButton");
+        if (recentButton.Visibility != Visibility.Visible || !recentButton.IsEnabled
+            || (string?)recentButton.Tag != "chr5000_c00")
+            throw new InvalidDataException("The observed c00 model was not offered from the game log");
+        recentButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        if ((selector.SelectedItem as CharacterRecord)?.ModelId != "chr5000_c00"
+            || ((TextBox)window.FindName("FilterBox")).Text != "chr5000_c00")
+            throw new InvalidDataException("The recent-model shortcut did not select the exact logged outfit");
+        ((TextBox)window.FindName("FilterBox")).Text = costume.ModelId;
         selector.SelectedItem = selected;
         bool Ready() => (bool)typeof(MainWindow).GetField("_modelReady", Private)!.GetValue(window)!;
         Pump(Ready, "isolated Estelle costume preview");
@@ -190,16 +210,60 @@ internal static class SecondChapterCheck
             "asset", "common", "model", costume.ModelFileName);
         var loader = Path.Combine(root, "xinput1_4.dll");
         if (!File.Exists(exported) || !File.Exists(loader) || Hash(model) != Hash(exported)
-            || Hash(model) == originalHash || Hash(exe) != exeHash)
+            || Hash(model) == originalHash || Hash(exe) != exeHash || Hash(recentModel) != recentHash)
             throw new InvalidDataException("The Estelle 2nd outfit was not installed under its own model ID");
         GameInstaller.RestoreLatest(root, Path.Combine(outputRoot, "install-backups"), () => false);
-        if (File.Exists(loader) || Hash(model) != originalHash || Hash(exe) != exeHash)
+        if (File.Exists(loader) || Hash(model) != originalHash || Hash(exe) != exeHash
+            || Hash(recentModel) != recentHash)
             throw new InvalidDataException("The Estelle 2nd outfit was not restored to the original model");
+    }
+
+    private static void CheckRecentModelLog()
+    {
+        Console.WriteLine("STAGE last observed 2nd Chapter costume log");
+        var fixture = Path.Combine(outputRootForPreview(), "cache", "diagnostics",
+            "recent-model-fixture-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(fixture);
+        try
+        {
+            if (RecentGameModelLog.Read(fixture) is not null)
+                throw new InvalidDataException("A missing game log reported a recent outfit");
+            File.WriteAllText(Path.Combine(fixture, "sora2looseload.log"), """
+                ---- Log Started ----
+                [MOD] Checking standard loose file: 'D:\Game\asset\common\model\chr5000_c52.mdl'
+                ---- Log Started ----
+                [MOD] Checking standard loose file: 'D:\Game\asset\common\model\chr5000_c00.mdl'
+                [MOD] Checking standard loose file: 'D:\Game\asset\common\model\chr5000_m_idle.mdl'
+                """);
+            var recent = RecentGameModelLog.Read(fixture);
+            if (recent is null || recent.LastRequestedByCharacter.Count != 1
+                || !recent.LastRequestedByCharacter.TryGetValue("chr5000", out var modelId)
+                || modelId != "chr5000_c00")
+                throw new InvalidDataException("The latest game session did not select the exact c00 model request");
+        }
+        finally { Directory.Delete(fixture, true); }
     }
 
     [STAThread]
     private static void Main()
     {
+        var savedPath = Path.Combine(outputRootForPreview(), "game-directory.txt");
+        var savedDirectory = File.Exists(savedPath) ? File.ReadAllBytes(savedPath) : null;
+        try { Run(); }
+        finally
+        {
+            if (savedDirectory is null)
+            {
+                if (File.Exists(savedPath)) File.Delete(savedPath);
+            }
+            else if (!File.Exists(savedPath) || !File.ReadAllBytes(savedPath).SequenceEqual(savedDirectory))
+                File.WriteAllBytes(savedPath, savedDirectory);
+        }
+    }
+
+    private static void Run()
+    {
+        CheckRecentModelLog();
         var game = Environment.GetEnvironmentVariable("SKY2ND_GAME_ROOT")
             ?? throw new InvalidOperationException("Set SKY2ND_GAME_ROOT to the installed game directory");
         var exe = Path.Combine(game, "sora_2nd.exe");
@@ -242,6 +306,7 @@ internal static class SecondChapterCheck
         var adult = records.Single(record => record.ModelId == "chr5002");
         var adultCostume = records.Single(record => record.ModelId == "chr5002_c01");
         var minorCostume = records.Single(record => record.ModelId == "chr5000_c01");
+        var estelleC00 = records.Single(record => record.ModelId == "chr5000_c00");
         var estelleFirstOutfit = records.Single(record => record.ModelId == "chr5000");
         var estelleSecond = records.Single(record => record.ModelId == "chr5000_c11");
         if (!adultCostume.AdultShapeEligible || adultCostume.AgeDefinitionLabel is null
@@ -250,17 +315,25 @@ internal static class SecondChapterCheck
             || !CharacterAgeCatalog.Get("chr5002_c01", true, GameEdition.Second,
                 "其他角色：泡澡服").IsAdult)
             throw new InvalidDataException("2nd costume age inheritance ignored the game's definition or refused a non-minor default");
-        if (!estelleFirstOutfit.DisplayName.Contains("1st版服装", StringComparison.Ordinal)
-            || !estelleSecond.DisplayName.Contains("2nd版轻装服装", StringComparison.Ordinal)
+        if (estelleFirstOutfit.CostumeName?.ItemId != 2529
+            || estelleFirstOutfit.CostumeName.Chinese != "艾丝蒂尔·原服装"
+            || estelleFirstOutfit.CostumeName.English != "Estelle - 1st"
+            || estelleSecond.CostumeName?.ItemId != 2511
+            || estelleSecond.CostumeName.Chinese != "艾丝蒂尔·轻装"
+            || estelleSecond.CostumeName.English != "Estelle - Casual"
+            || adultCostume.CostumeName?.English != "Scherazard - Hot Spring"
+            || !estelleFirstOutfit.AgeDefinitionLabel!.Contains("1st版服装", StringComparison.Ordinal)
+            || !estelleSecond.AgeDefinitionLabel!.Contains("2nd版轻装服装", StringComparison.Ordinal)
             || estelleSecond.AdultShapeEligible)
-            throw new InvalidDataException("Estelle's original and 2nd Chapter outfit resources were not distinguished");
+            throw new InvalidDataException("2nd Chapter outfit item names, source definitions or age classification were not preserved");
         var previousLanguage = UiText.Current;
         try
         {
             UiText.SetLanguage(UiLanguage.English, persist: false);
-            if (!estelleFirstOutfit.LocalizedName.Contains("1st outfit", StringComparison.Ordinal)
-                || !estelleSecond.LocalizedName.Contains("2nd outfit", StringComparison.Ordinal))
-                throw new InvalidDataException("English outfit labels hide the 1st/2nd model distinction");
+            if (!estelleFirstOutfit.LocalizedName.Contains("Estelle - 1st (in-game outfit)", StringComparison.Ordinal)
+                || !estelleSecond.LocalizedName.Contains("Estelle - Casual (in-game outfit)", StringComparison.Ordinal)
+                || !adultCostume.LocalizedName.Contains("Scherazard - Hot Spring (in-game outfit)", StringComparison.Ordinal))
+                throw new InvalidDataException("English outfit item names were lost in the model selector");
         }
         finally { UiText.SetLanguage(previousLanguage, persist: false); }
         var archive = (PacArchive)typeof(MainWindow).GetField("_modelArchive", Private)!.GetValue(window)!;
@@ -341,6 +414,11 @@ internal static class SecondChapterCheck
         if (((LiveModelView)window.FindName("LiveView")).Geometry.Count == 0)
             throw new InvalidDataException("Estelle 2nd outfit has no preview geometry");
         CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5000_c11", 0);
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = estelleC00;
+        Console.WriteLine("STAGE preview the c00 model requested in the observed prologue session");
+        Pump(Ready, "Estelle c00 preview");
+        if (((LiveModelView)window.FindName("LiveView")).Geometry.Count == 0)
+            throw new InvalidDataException("Estelle c00 has no preview geometry");
         ((ComboBox)window.FindName("CharacterBox")).SelectedItem = estelleFirstOutfit;
         Pump(Ready, "Estelle 1st outfit preview");
         CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5000", 0);

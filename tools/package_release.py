@@ -17,7 +17,7 @@ def copy(src,dest):
  else:shutil.copy2(src,dest)
 for file in a.build.iterdir():
  if file.is_file() and file.suffix in ('.exe','.dll','.json'):copy(file,a.out/file.name)
-for name in ['character-ages.json','character-ages-2nd.json','first-install-builds.json','loader-integrity.json','SkyCharacterStudio.ico']:copy(root/'assets'/name,a.out/'assets'/name)
+for name in ['character-ages.json','character-ages-2nd.json','first-install-builds.json','legacy-first-plugins.json','loader-integrity.json','SkyCharacterStudio.ico']:copy(root/'assets'/name,a.out/'assets'/name)
 for name in ['auto_model.py','asset_codec.py','bone_profile.py','character_age.py','apply_shape.py','preview_dds.py','lib_fmtibvb.py']:copy(root/'tools'/name,a.out/'tools'/name)
 dat_builder=next((candidate for candidate in [native_dir/'build_summon_dat.exe',root/'tools'/'build_summon_dat.exe',mod/'tools'/'build_summon_dat.exe'] if candidate.exists()),None)
 if dat_builder is None:raise SystemExit('Missing build_summon_dat.exe; build native components before packaging')
@@ -42,7 +42,7 @@ for site in sites:
 
 template=a.out/'runtime/mod-template';base=mod/'dist/Scherazard_Runtime'
 if not base.is_dir():raise SystemExit('Missing verified runtime template: '+str(base))
-for name in ['xinput1_4.dll','ED9Loader/ED9ModManager.exe','ED9Loader/plugins/ScriptInject.dll']:
+for name in ['xinput1_4.dll','ED9Loader/ED9ModManager.exe']:
  copy(base/name,template/name)
 second_loader=a.second_loader.resolve()
 supported=json.loads((root/'assets/loader-integrity.json').read_text(encoding='utf8'))
@@ -51,18 +51,12 @@ second_loader_hash=hashlib.sha256(second_loader.read_bytes()).hexdigest()
 if not any(item['game']=='second' and item['size']==second_loader_size and item['sha256'].lower()==second_loader_hash for item in supported['loaders']):
  raise SystemExit('The 2nd Chapter loader does not match assets/loader-integrity.json; refusing to package it')
 copy(second_loader,a.out/'runtime/second-loader/xinput1_4.dll')
-native_plugins={
- 'EventStarter.dll':[native_dir/'EventStarter.dll',root/'release-stage'/'native'/'EventStarter.dll',base/'ED9Loader/plugins/EventStarter.dll'],
- 'SceneRedirect.dll':[native_dir/'SceneRedirect.dll',root/'release-stage'/'native'/'SceneRedirect.dll',base/'ED9Loader/plugins/SceneRedirect.dll']
-}
-for name,candidates in native_plugins.items():
- source=next((candidate for candidate in candidates if candidate.exists()),None)
- if source is None:raise SystemExit('Missing native plugin '+name+'; build native components before packaging')
- copy(source,template/'ED9Loader/plugins'/name)
-copy(base/'ED9Loader/config/EventStarter.ini',template/'ED9Loader/config/EventStarter.ini')
-ini=template/'ED9Loader/config/EventStarter.ini';ini.write_text(ini.read_text()+'\nenabled=0\n',encoding='ascii')
-(template/'Mod/ScherazardSummon/asset/common/model').mkdir(parents=True)
-(template/'Mod/ScherazardSummon/add_dat_ini.json').write_text('{"inject":[]}',encoding='ascii')
+copy(native_dir/'SceneRedirect.dll',a.out/'runtime/first-redirect/1.0.5.0/SceneRedirect.dll')
+copy(native_dir/'StudioModelRedirect.dll',a.out/'runtime/first-redirect/1.0.7.0/StudioModelRedirect.dll')
+summon=a.out/'runtime/first-summon/ED9Loader'
+copy(native_dir/'EventStarter.dll',summon/'plugins/EventStarter.dll')
+copy(base/'ED9Loader/plugins/ScriptInject.dll',summon/'plugins/ScriptInject.dll')
+copy(base/'ED9Loader/config/EventStarter.ini',summon/'config/EventStarter.ini')
 copy(mod/'vendor/ed9modmanager/extracted/ED9ModManager/LICENSE',a.out/'licenses/ED9ModManager.txt')
 copy(mod/'vendor/LICENSE',a.out/'licenses/KuroMDLTool-GPL-3.0.txt')
 copy(root/'release/licenses/sora2looseload-MIT.txt',a.out/'licenses/sora2looseload-MIT.txt')

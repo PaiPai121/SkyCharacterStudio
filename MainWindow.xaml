@@ -132,6 +132,10 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
+                        <Button x:Name="RecentModelButton" Visibility="Collapsed" IsEnabled="False"
+                                Click="RecentModelButton_Click" HorizontalAlignment="Stretch" Margin="0,7,0,0">
+                            <TextBlock x:Name="RecentModelButtonText" TextWrapping="Wrap" />
+                        </Button>
                         <Border Background="{StaticResource PanelDeepBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,12,0,0">
                             <StackPanel>
                                 <TextBlock x:Name="CurrentModelLabel" Text="当前模型" Foreground="{StaticResource MutedBrush}" FontSize="11" />

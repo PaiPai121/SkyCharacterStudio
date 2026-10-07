@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.IO;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
@@ -38,11 +39,12 @@ public static class GameInstaller
             && entry.Name.EndsWith(".mdl", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(UiText.T("error.model.none"));
 
-        if (edition == GameEdition.First) ValidateFirstInstallBuild(executablePath);
+        if (edition == GameEdition.First) GetSupportedFirstVersion(gameRoot);
     }
 
-    private static void ValidateFirstInstallBuild(string executablePath)
+    public static string GetSupportedFirstVersion(string gameRoot)
     {
+        var executablePath = Path.Combine(gameRoot, GameEditionInfo.ExecutableName(GameEdition.First));
         // The 1st Chapter loader uses executable-specific addresses. The 2nd
         // Chapter loose-file loader is validated separately and has no EXE hash gate.
         var manifest = Path.Combine(AppContext.BaseDirectory, "assets", "first-install-builds.json");
@@ -51,13 +53,16 @@ public static class GameInstaller
         using var builds = JsonDocument.Parse(File.ReadAllText(manifest));
         using var executable = File.OpenRead(executablePath);
         var actual = Convert.ToHexString(SHA256.HashData(executable));
-        if (!builds.RootElement.GetProperty("builds").EnumerateArray()
-            .Any(build => string.Equals(build.GetProperty("sha256").GetString(), actual,
-                StringComparison.OrdinalIgnoreCase)))
+        var match = builds.RootElement.GetProperty("builds").EnumerateArray()
+            .FirstOrDefault(build => string.Equals(build.GetProperty("sha256").GetString(), actual,
+                StringComparison.OrdinalIgnoreCase));
+        if (match.ValueKind == JsonValueKind.Undefined)
         {
             var version = FileVersionInfo.GetVersionInfo(executablePath).FileVersion ?? "?";
             throw new InvalidOperationException(UiText.F("error.unsupported.first.version", version));
         }
+        return match.GetProperty("version").GetString()
+            ?? throw new InvalidDataException(UiText.T("error.first.builds.missing"));
     }
 
     public static bool IsGameRunning(string? gameRoot = null)
@@ -65,10 +70,27 @@ public static class GameInstaller
         GameEdition? edition = gameRoot is null ? null : GameEditionInfo.Detect(gameRoot);
         var names = edition is null ? new[] { "sora_1st", "sora_2nd" }
             : new[] { Path.GetFileNameWithoutExtension(GameEditionInfo.ExecutableName(edition.Value)) };
+        var targetExecutable = edition is null ? null : Path.GetFullPath(Path.Combine(gameRoot!,
+            GameEditionInfo.ExecutableName(edition.Value)));
         foreach (var name in names)
         {
             var processes = Process.GetProcessesByName(name);
-            try { if (processes.Length > 0) return true; }
+            try
+            {
+                foreach (var process in processes)
+                {
+                    if (targetExecutable is null) return true;
+                    try
+                    {
+                        var runningExecutable = process.MainModule?.FileName;
+                        if (runningExecutable is null || Path.GetFullPath(runningExecutable).Equals(
+                            targetExecutable, StringComparison.OrdinalIgnoreCase)) return true;
+                    }
+                    catch (InvalidOperationException) { /* Process exited during inspection. */ }
+                    catch (Win32Exception) { return true; /* Cannot establish a safe mismatch. */ }
+                    catch (UnauthorizedAccessException) { return true; /* Cannot establish a safe mismatch. */ }
+                }
+            }
             finally { foreach (var process in processes) process.Dispose(); }
         }
         return false;
@@ -96,6 +118,42 @@ public static class GameInstaller
         return SHA256.HashData(leftStream).SequenceEqual(SHA256.HashData(rightStream));
     }
 
+    private static List<string> MatchedRetiredFirstPlugins(string gameRoot, string gameVersion,
+        IReadOnlyCollection<string> copiedFiles)
+    {
+        if (gameVersion != "1.0.7.0") return [];
+        var manifestPath = Path.Combine(AppContext.BaseDirectory, "assets", "legacy-first-plugins.json");
+        using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
+        var root = manifest.RootElement;
+        if (root.GetProperty("game").GetString() != "first"
+            || root.GetProperty("retireOnVersion").GetString() != gameVersion)
+            throw new InvalidDataException("Invalid 1st legacy plugin retirement manifest.");
+        var allowedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ED9Loader/plugins/ScriptInject.dll", "ED9Loader/plugins/EventStarter.dll"
+        };
+        var retired = new List<string>();
+        foreach (var entry in root.GetProperty("files").EnumerateArray())
+        {
+            var relative = entry.GetProperty("path").GetString()
+                ?? throw new InvalidDataException("Legacy plugin path is missing.");
+            var expectedHash = entry.GetProperty("sha256").GetString()
+                ?? throw new InvalidDataException("Legacy plugin hash is missing.");
+            if (!allowedPaths.Remove(relative) || expectedHash.Length != 64
+                || !expectedHash.All(Uri.IsHexDigit)
+                || copiedFiles.Contains(relative, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException("Invalid 1st legacy plugin retirement entry.");
+            var target = SafePath(gameRoot, relative);
+            if (!File.Exists(target)) continue;
+            using var file = File.OpenRead(target);
+            var actualHash = Convert.ToHexString(SHA256.HashData(file));
+            if (actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase)) retired.Add(relative);
+        }
+        if (allowedPaths.Count != 0)
+            throw new InvalidDataException("Incomplete 1st legacy plugin retirement manifest.");
+        return retired;
+    }
+
     public static string Install(string package, string gameRoot, string backupRoot, Func<bool>? runningCheck = null)
     {
         gameRoot = ValidateGameRoot(gameRoot);
@@ -103,10 +161,15 @@ public static class GameInstaller
         if (runningCheck()) throw new InvalidOperationException(UiText.T("error.game.running"));
         ValidateInstallTarget(gameRoot);
         var edition = GameEditionInfo.Detect(gameRoot);
+        var firstVersion = edition == GameEdition.First ? GetSupportedFirstVersion(gameRoot) : null;
+        var firstRedirect = firstVersion == "1.0.7.0"
+            ? "ED9Loader/plugins/StudioModelRedirect.dll"
+            : "ED9Loader/plugins/SceneRedirect.dll";
         package = Path.GetFullPath(package);
         var requiredPaths = edition == GameEdition.Second
             ? new[] { "xinput1_4.dll", "asset/common/model" }
-            : new[] { "xinput1_4.dll", "ED9Loader", "Mod/ScherazardSummon/asset/common/model" };
+            : new[] { "xinput1_4.dll", firstRedirect,
+                "Mod/SkyCharacterStudio/asset/common/model" };
         foreach (var required in requiredPaths)
             if (!File.Exists(Path.Combine(package,required)) && !Directory.Exists(Path.Combine(package,required)))
                 throw new InvalidDataException(UiText.F("error.package.incomplete", required));
@@ -145,10 +208,15 @@ public static class GameInstaller
             }
             files.AddRange(Directory.GetFiles(Path.Combine(package,folder),"*",options).Select(p=>Path.GetRelativePath(package,p)));
         }
+        var copiedFiles = files.ToList();
+        var retiredFiles = firstVersion is null ? new List<string>()
+            : MatchedRetiredFirstPlugins(gameRoot, firstVersion, copiedFiles);
+        files.AddRange(retiredFiles);
         var backup = Path.GetFullPath(Path.Combine(backupRoot,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N")));
         var existed = new Dictionary<string,bool>();
         foreach(var relative in files) {
-            SafePath(package,relative); var target=SafePath(gameRoot,relative);
+            if (!retiredFiles.Contains(relative, StringComparer.OrdinalIgnoreCase)) SafePath(package,relative);
+            var target=SafePath(gameRoot,relative);
             if(Directory.Exists(target)) throw new IOException(UiText.F("error.same.directory", target));
             existed[relative]=File.Exists(target);
         }
@@ -158,18 +226,18 @@ public static class GameInstaller
             File.Copy(Path.Combine(gameRoot,relative),saved);
         }
         var manifest=Path.Combine(backup,"installation.json");
-        var installedHashes=files.ToDictionary(r=>r,r=>Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(SafePath(package,r)))));
-        void Record(string state,string? note=null) => File.WriteAllText(manifest,JsonSerializer.Serialize(new { gameRoot, package, state, note, files=existed,installedHashes },new JsonSerializerOptions { WriteIndented=true }));
+        var installedHashes=copiedFiles.ToDictionary(r=>r,r=>Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(SafePath(package,r)))));
+        void Record(string state,string? note=null) => File.WriteAllText(manifest,JsonSerializer.Serialize(new { gameRoot, package, state, note, files=existed,installedHashes,removed=retiredFiles },new JsonSerializerOptions { WriteIndented=true }));
         Record("backed-up");
         // A file whose bytes already match the package must not be rewritten: on a
         // locked or protected copy the write fails even though nothing has to
         // change, and the rollback then fails on the same file. Verify and skip.
-        var identical=files.Where(r=>existed[r]
+        var identical=copiedFiles.Where(r=>existed[r]
             && string.Equals(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(SafePath(gameRoot,r)))),installedHashes[r],StringComparison.OrdinalIgnoreCase)).ToList();
         var touched=new List<string>();
         var createdDirectories=new List<string>();
         try {
-            foreach(var relative in files) {
+            foreach(var relative in copiedFiles) {
                 if(runningCheck()) throw new IOException(UiText.T("error.install.interrupted"));
                 var source=SafePath(package,relative); var target=SafePath(gameRoot,relative);
                 if(identical.Contains(relative)) continue;
@@ -178,6 +246,13 @@ public static class GameInstaller
                 touched.Add(relative); File.Copy(source,target,true);
                 using var a=File.OpenRead(source); using var b=File.OpenRead(target);
                 if(!SHA256.HashData(a).SequenceEqual(SHA256.HashData(b))) throw new IOException(UiText.F("error.install.verify", relative));
+            }
+            foreach (var relative in retiredFiles) {
+                if (runningCheck()) throw new IOException(UiText.T("error.install.interrupted"));
+                var target = SafePath(gameRoot, relative);
+                touched.Add(relative);
+                File.Delete(target);
+                if (File.Exists(target)) throw new IOException(UiText.F("error.install.verify", relative));
             }
             var note=identical.Count==0 ? null
                 : UiText.F("install.note.identical", identical.Count);
@@ -228,11 +303,15 @@ public static class GameInstaller
             if(doc["state"]?.GetValue<string>()!="installed" || !string.Equals(doc["gameRoot"]?.GetValue<string>(),gameRoot,StringComparison.OrdinalIgnoreCase))continue;
             var backup=Path.GetDirectoryName(file)!;
             var originals=new Dictionary<string,byte[]?>();var current=new Dictionary<string,byte[]?>();
+            var removed=doc["removed"]?.AsArray().Select(item=>item!.GetValue<string>())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach(var pair in doc["files"]!.AsObject()) {
                 var target=SafePath(gameRoot,pair.Key);var saved=SafePath(backup,pair.Key);
                 current[pair.Key]=File.Exists(target)?File.ReadAllBytes(target):null;
                 var expected=doc["installedHashes"]?[pair.Key]?.GetValue<string>();
                 if(expected is not null && (current[pair.Key] is null || Convert.ToHexString(SHA256.HashData(current[pair.Key]!))!=expected))
+                    throw new IOException(UiText.F("error.restore.changed", pair.Key));
+                if (removed.Contains(pair.Key) && current[pair.Key] is not null)
                     throw new IOException(UiText.F("error.restore.changed", pair.Key));
                 originals[pair.Key]=pair.Value!.GetValue<bool>()?File.ReadAllBytes(saved):null;
             }

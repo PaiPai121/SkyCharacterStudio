@@ -218,6 +218,9 @@ public static class CharacterScanner
         var names = edition == GameEdition.First
             ? CharacterNames.Load(archiveDirectory) : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var detailedNames = CharacterNames.LoadDetails(archiveDirectory);
+        var costumes = edition == GameEdition.Second
+            ? CharacterNames.LoadCostumeDetails(archiveDirectory)
+            : new Dictionary<string, CostumeNameInfo>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in modelArchive.Entries)
         {
             var slash = entry.Name.LastIndexOf('/');
@@ -229,18 +232,23 @@ public static class CharacterScanner
             var face = ChoosePreview(imageEntries, id);
             var info = FindModelInfo(modelInfoArchive, id);
             detailedNames.TryGetValue(id, out var nameInfo);
+            costumes.TryGetValue(id, out var costumeInfo);
             var catalogName = edition == GameEdition.Second ? CharacterAgeCatalog.Get(id, edition: edition).Name : "";
             // A definition can identify an outfit more precisely than an age-catalog
             // person label (for example, a model retained from the previous game).
-            var displayName = edition == GameEdition.Second && nameInfo?.IsDefinition == true
+            var displayName = costumeInfo?.Chinese
+                ?? (edition == GameEdition.Second && nameInfo?.IsDefinition == true
                 ? nameInfo.Label
                 : !string.IsNullOrWhiteSpace(catalogName) ? catalogName
-                : nameInfo?.Label ?? (names.TryGetValue(id, out var known) ? known : $"未登记名称 · {id}");
+                : nameInfo?.Label ?? (names.TryGetValue(id, out var known) ? known : $"未登记名称 · {id}"));
             records.Add(new CharacterRecord
             {
                 ModelId = id,
                 DisplayName = displayName,
-                NameSourceKey = nameInfo is null ? "second.name.missing"
+                ResourceName = nameInfo?.Label ?? catalogName,
+                CostumeName = costumeInfo,
+                NameSourceKey = costumeInfo is not null ? "second.name.costume"
+                    : nameInfo is null ? "second.name.missing"
                     : nameInfo.IsDefinition ? "second.name.definition" : "second.name.scene",
                 NameAliasCount = nameInfo?.DistinctLabels ?? 0,
                 ModelEntry = entry,

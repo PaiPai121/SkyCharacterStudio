@@ -1,6 +1,9 @@
 using System.IO;
 using System.Reflection;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -58,8 +61,18 @@ class PortableReleaseCheck {
   if(Math.Abs(shapeSlider.Value)>1e-9 || !((TextBlock)w.FindName("PreviewStrengthText")).Text.Equals("0%",StringComparison.Ordinal))throw new Exception("Reset shape button failed");
   var archive=PacArchive.Load(Path.Combine(game,"pac/steam/asset_common_model.pac"));
   ExportResult Export(int strength,bool summon){var t=ExportService.ExportAsync(r,archive,root,strength,true,CancellationToken.None,"chest",summon);Pump(()=>t.IsCompleted);return t.GetAwaiter().GetResult();}
-  var normal=Export(100,false);if(normal.SummonEnabled || !File.ReadAllText(Path.Combine(normal.RuntimePackagePath!,"ED9Loader/config/EventStarter.ini")).Contains("enabled=0"))throw new Exception("Normal install not disabled");
-  var test=Export(101,true);if(!test.SummonEnabled || !File.Exists(Path.Combine(test.RuntimePackagePath!,"Mod/ScherazardSummon/asset/common/model/chr_studio_original.mdl")))throw new Exception("Missing original comparison");
+  var normal=Export(100,false);
+  if(normal.SummonEnabled ||
+     !File.Exists(Path.Combine(normal.RuntimePackagePath!,"Mod/SkyCharacterStudio/asset/common/model/chr5107.mdl")) ||
+     !File.Exists(Path.Combine(normal.RuntimePackagePath!,"ED9Loader/plugins/StudioModelRedirect.dll")) ||
+     File.Exists(Path.Combine(normal.RuntimePackagePath!,"ED9Loader/plugins/SceneRedirect.dll")) ||
+     File.Exists(Path.Combine(normal.RuntimePackagePath!,"ED9Loader/plugins/EventStarter.dll")) ||
+     File.Exists(Path.Combine(normal.RuntimePackagePath!,"ED9Loader/plugins/ScriptInject.dll")))
+   throw new Exception("Normal 1st package contains F8 plugins or lacks its model redirect");
+  var test=Export(101,true);
+  if(test.SummonEnabled || test.SummonWarning is null ||
+     File.Exists(Path.Combine(test.RuntimePackagePath!,"ED9Loader/plugins/EventStarter.dll")))
+   throw new Exception("Unverified 1.0.7 F8 plugin was packaged");
   var fake=Path.Combine(smokeRoot,"test-game");Directory.CreateDirectory(Path.Combine(fake,"pac/steam"));File.Copy(Path.Combine(game,"sora_1st.exe"),Path.Combine(fake,"sora_1st.exe"),true);
   var fakePacPath=Path.Combine(fake,"pac/steam/asset_common_model.pac");WriteSingleModelPac(archive,r.ModelEntry,fakePacPath);
   using(var imageWriter=new BinaryWriter(File.Create(Path.Combine(fake,"pac/steam/image.pac")))){
@@ -78,15 +91,79 @@ class PortableReleaseCheck {
   shapeSlider.Value=102;
   var installTask=(Task)typeof(MainWindow).GetMethod("InstallCurrentAsync",F)!.Invoke(w,null)!;
   Pump(()=>installTask.IsCompleted);installTask.GetAwaiter().GetResult();
-  var model=Path.Combine(fake,"Mod/ScherazardSummon/asset/common/model/chr5107.mdl");
+  var model=Path.Combine(fake,"Mod/SkyCharacterStudio/asset/common/model/chr5107.mdl");
   var generated=Path.Combine(root,"exports","chr5107_width_102","asset","common","model","chr5107.mdl");
   if(!File.Exists(generated) || !File.Exists(model) || !File.ReadAllBytes(generated).SequenceEqual(File.ReadAllBytes(model)))throw new Exception("F8 failure blocked normal model generation or installation");
   var status=((TextBlock)w.FindName("StatusText")).Text;
-  if(!status.Contains("script_sc.pac") || !status.Contains("F8"))throw new Exception("F8 fallback was not explained in the UI");
-  if(!File.ReadAllText(Path.Combine(fake,"ED9Loader/config/EventStarter.ini")).Contains("enabled=0") ||
-     !File.ReadAllText(Path.Combine(fake,"Mod/ScherazardSummon/add_dat_ini.json")).Contains("\"inject\":[]"))throw new Exception("F8 fallback left summon enabled");
+  if(!status.Contains("F8") || !status.Contains("1.0.7.0"))throw new Exception("Unsupported F8 was not explained in the UI");
+  if(File.Exists(Path.Combine(fake,"ED9Loader/plugins/EventStarter.dll")) ||
+     File.Exists(Path.Combine(fake,"ED9Loader/plugins/ScriptInject.dll")) ||
+     File.Exists(Path.Combine(fake,"Mod/ScherazardSummon/add_dat_ini.json")))
+   throw new Exception("Normal 1st installation added summon files");
   GameInstaller.RestoreLatest(fake,Path.Combine(root,"install-backups"),()=>false);
+  Console.WriteLine("STAGE retire and restore legacy 1st plugins with exact known hashes");
+  var legacyManifest=JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"assets","legacy-first-plugins.json")));
+  var oldHashes=legacyManifest.RootElement.GetProperty("files").EnumerateArray()
+   .ToDictionary(item=>item.GetProperty("path").GetString()!,item=>item.GetProperty("sha256").GetString()!);
+  var legacySources=new Dictionary<string,string>{
+   ["ED9Loader/plugins/ScriptInject.dll"]=Path.Combine(AppContext.BaseDirectory,"runtime/first-summon/ED9Loader/plugins/ScriptInject.dll"),
+   ["ED9Loader/plugins/EventStarter.dll"]=Path.Combine(game,"ED9Loader/plugins/EventStarter.dll")
+  };
+  var oldPlugins=new Dictionary<string,byte[]>();
+  foreach(var entry in legacySources){
+   if(!File.Exists(entry.Value))continue;
+   var bytes=File.ReadAllBytes(entry.Value);
+   if(!Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).Equals(oldHashes[entry.Key],StringComparison.OrdinalIgnoreCase))continue;
+   var installedPath=Path.Combine(fake,entry.Key);Directory.CreateDirectory(Path.GetDirectoryName(installedPath)!);
+   File.WriteAllBytes(installedPath,bytes);oldPlugins.Add(entry.Key,bytes);
+  }
+  if(!oldPlugins.ContainsKey("ED9Loader/plugins/ScriptInject.dll"))throw new Exception("Missing old ScriptInject regression input");
+  var legacyBackupRoot=Path.Combine(smokeRoot,"legacy-plugin-backups");
+  var legacyBackup=GameInstaller.Install(normal.RuntimePackagePath!,fake,legacyBackupRoot,()=>false);
+  using(var recorded=JsonDocument.Parse(File.ReadAllText(Path.Combine(legacyBackup,"installation.json")))){
+   var removed=recorded.RootElement.GetProperty("removed").EnumerateArray().Select(item=>item.GetString()).ToHashSet();
+   if(oldPlugins.Keys.Any(path=>!removed.Contains(path)))throw new Exception("Known legacy plugin was not recorded for retirement");
+  }
+  foreach(var entry in oldPlugins){
+   if(File.Exists(Path.Combine(fake,entry.Key)) || !File.ReadAllBytes(Path.Combine(legacyBackup,entry.Key)).SequenceEqual(entry.Value))
+    throw new Exception("Known legacy plugin was not removed and backed up");
+  }
+  var replacedPlugin=Path.Combine(fake,"ED9Loader/plugins/ScriptInject.dll");File.WriteAllBytes(replacedPlugin,[8,9,10]);
+  try{GameInstaller.RestoreLatest(fake,legacyBackupRoot,()=>false);throw new Exception("Undo overwrote a newly replaced plugin");}catch(IOException){}
+  File.Delete(replacedPlugin);
+  GameInstaller.RestoreLatest(fake,legacyBackupRoot,()=>false);
+  foreach(var entry in oldPlugins){
+   var path=Path.Combine(fake,entry.Key);
+   if(!File.ReadAllBytes(path).SequenceEqual(entry.Value))throw new Exception("Undo did not restore the original legacy plugin");
+   File.Delete(path);
+  }
   ((CheckBox)w.FindName("SummonTestingBox")).IsChecked=false;
+  Console.WriteLine("STAGE 1st UI advice after a denied loader write");
+  var deniedLoader=Path.Combine(fake,"xinput1_4.dll");
+  File.WriteAllBytes(deniedLoader,[1,2,3]);
+  var deniedLoaderHash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(deniedLoader)));
+  var deniedFile=new FileInfo(deniedLoader);
+  var deniedAccess=deniedFile.GetAccessControl();
+  var denyWrite=new FileSystemAccessRule(
+   WindowsIdentity.GetCurrent().User ?? throw new InvalidOperationException("Current Windows user has no SID"),
+   FileSystemRights.WriteData | FileSystemRights.AppendData,
+   InheritanceFlags.None,PropagationFlags.None,AccessControlType.Deny);
+  deniedAccess.AddAccessRule(denyWrite);deniedFile.SetAccessControl(deniedAccess);
+  try{
+   var deniedTask=(Task)typeof(MainWindow).GetMethod("InstallCurrentAsync",F)!.Invoke(w,null)!;
+   Pump(()=>deniedTask.IsCompleted,"1st UI denied install");deniedTask.GetAwaiter().GetResult();
+   var deniedStatus=((TextBlock)w.FindName("StatusText")).Text;
+   if(!deniedStatus.Contains(deniedLoader,StringComparison.OrdinalIgnoreCase)
+      || !deniedStatus.Contains(UiText.T("error.install.permission.hint"),StringComparison.Ordinal)
+      || Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(deniedLoader)))!=deniedLoaderHash)
+    throw new Exception("A denied 1st loader write did not show permission advice and preserve the original");
+  }finally{
+   if(File.Exists(deniedLoader)){
+    deniedAccess.RemoveAccessRuleSpecific(denyWrite);
+    new FileInfo(deniedLoader).SetAccessControl(deniedAccess);
+   }
+  }
+  File.Delete(deniedLoader);
   ((TextBox)w.FindName("GamePathBox")).Text=game;
   Directory.CreateDirectory(Path.GetDirectoryName(model)!);File.WriteAllBytes(model,[1,2,3]);
   var backups=Path.Combine(smokeRoot,"test-backups");GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);
@@ -129,7 +206,7 @@ class PortableReleaseCheck {
   ((TextBox)w.FindName("GamePathBox")).Text="";
   if(((TextBlock)w.FindName("TargetGameText")).Text!=UiText.T("game.target.none") || box.Items.Count!=0)
    throw new Exception("Clearing the game folder left stale target information");
-  File.WriteAllText(Path.Combine(smokeRoot,"portable-test-result.txt"),"PASS isolated WPF preview, bundled Python and native builder, normal/summon exports, missing-F8 fallback, 1st different-hash gate, malformed executable offline export and changed-file protection. No writes to the actual game.");
+  File.WriteAllText(Path.Combine(smokeRoot,"portable-test-result.txt"),"PASS isolated WPF preview, bundled Python and native builder, normal 1st export without F8 components, unsupported-F8 fallback, 1st different-hash gate, malformed executable offline export and changed-file protection. No writes to the actual game.");
   Console.WriteLine("PASS portable release checks");app.Shutdown();
  }
 }

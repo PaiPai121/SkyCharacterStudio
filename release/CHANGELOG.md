@@ -1,3 +1,44 @@
+# 0.3.18 beta
+
+- Prepare a clean-source, reproducible player package for the combined 1st/2nd Chapter studio. The release archive contains no extracted game models, textures, scripts, local exports, or backups.
+- Clarify a migration limit: an independently installed older `ScherazardSummon` mod can remain enabled, and its `BracerMentorHud.dll` still displays the summon terminal. An ordinary Studio model install does not add this HUD or remove the separate mod. Disable the older HUD/mod separately if it is unwanted.
+- The 1st 1.0.7.0 model redirect and the 2nd Chapter modified costume's appearance and animation still need representative in-game checks. Offline installation and package checks do not establish visual compatibility.
+
+# 0.3.17 beta
+
+- Fix Windows Explorer error `0x80010135` when extracting a local preview from the project's `release-artifacts/local-previews` folder. The old ZIP stem made the bundled OpenBLAS DLL's default destination path 277 characters long.
+- Use a shorter, unique `SkyCharacterStudio-<version>-local-<id>.zip` name for local previews. Keep the complete beta version and source state in the release manifest. Build QA now checks every ZIP entry against Explorer's default same-name extraction directory, requires the longest path to stay below 240 characters, and runs its clean-extraction tests in that directory.
+- No game resources or user game directories are changed by this packaging fix. In-game model replacement remains to be verified separately.
+
+# 0.3.16 beta
+
+- Read the installed 2nd Chapter model PAC and preview the exact `chr5000_c00` model requested in the observed prologue session. The model parses and exports locally; the previous no-effect report involved installs to `chr5000` and `chr5000_c52`, neither of which that session requested.
+- When a 2nd Chapter loader log already exists, identify the last complete costume-model request for each character from the latest logged session. Show its exact model ID beside the selector and offer a one-click jump, even when the list is filtered to another costume. Label the log time and do not infer an active outfit when no log is available.
+- Check log-session reset, animation-name exclusion, filtered-selector navigation, actual `c00` preview, and isolated install/Undo. Real-game appearance after installing the matching slot remains unverified.
+
+# 0.3.15 beta
+
+- Retire byte-identified legacy `ScriptInject.dll` and `EventStarter.dll` when installing into the inspected 1st 1.0.7.0 build. Back up their exact bytes, remove them within the installation transaction, and restore them on Undo. Leave differently hashed third-party plugins untouched.
+- Reproduce the reported 1st crash from its minidump: the old ScriptInject plugin hooks a location that is no longer a valid function entry on 1.0.7.0. This release fixes the old-plugin migration in isolated copies; an in-game retry is still required.
+
+# 0.3.14 beta
+
+- Stage ordinary 1st model edits as their own `SkyCharacterStudio` mod. Unchecked F8 exports no longer include the summon DLLs or script mod; a previous Studio summon selection is explicitly disabled during migration.
+- Use a unique game file-open signature to redirect 1st 1.0.7 merged assets. Install it under a separate plugin name so existing mods are not overwritten; keep the original SceneRedirect plugin for the verified 1.0.5 path. F8 stays unavailable on 1.0.7 until its address-dependent plugin has an in-game check.
+- Check whether the selected game directory itself is running before installation. A same-named game process launched from another path no longer blocks installation into an isolated copy.
+- State that a successful file copy has not verified the in-game appearance. Runtime testing of both current game builds remains required.
+
+# 0.3.13 beta
+
+- When an installation fails because Windows denies a file write, keep the original error and backup path visible and suggest retrying after closing the game with the studio run as administrator. Other failure types retain their specific messages; an incomplete rollback is not presented as a simple retry.
+- Reproduce denied writes to the 1st loader and a 2nd model in isolated game copies, and check the on-screen advice and rollback without changing the installed games.
+
+# 0.3.12 beta
+
+- Label 2nd Chapter models with the matching in-game outfit name by joining the installed game's `t_costume.tbl` model entry to its localized `t_item.tbl` item name. Keep the `chr` model ID visible; resources without a unique outfit item remain marked as resource names.
+- Show the selected outfit and exact MDL filename after a 2nd Chapter installation, so the result is not mistaken for a change to every costume of that character.
+- Check the Chinese and English item labels against the installed 2nd Chapter tables, and run isolated scan, preview, export, install, and Undo checks without writing to the real game directory. In-game appearance still needs a player check.
+
 # 0.3.11 beta
 
 - Remove the extra write-and-delete probe in the game root before installation. Installation now tests only the files it actually needs to update; an existing identical loader can remain untouched while a model under `asset/common/model` is updated.

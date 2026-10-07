@@ -100,12 +100,14 @@ function Test-PortableDirectory {
         'assets/character-ages.json',
         'assets/character-ages-2nd.json',
         'assets/first-install-builds.json',
+        'assets/legacy-first-plugins.json',
         'assets/loader-integrity.json',
         'runtime/python/python.exe',
         'runtime/mod-template/xinput1_4.dll',
         'runtime/second-loader/xinput1_4.dll',
-        'runtime/mod-template/ED9Loader/plugins/EventStarter.dll',
-        'runtime/mod-template/ED9Loader/plugins/SceneRedirect.dll',
+        'runtime/first-redirect/1.0.5.0/SceneRedirect.dll',
+        'runtime/first-redirect/1.0.7.0/StudioModelRedirect.dll',
+        'runtime/first-summon/ED9Loader/plugins/EventStarter.dll',
         'tools/build_summon_dat.exe',
         'licenses/sora2looseload-MIT.txt'
     )) {
@@ -178,7 +180,7 @@ $root = (Get-Location).Path
 . (Join-Path $root 'release\BuildInputs.ps1')
 $sourceDirty = -not (Test-StudioCleanSource -Repository $root)
 if ($sourceDirty) {
-    Write-Warning '源码有未提交修改；本次将生成带 LOCAL-PREVIEW 标记的本地试包，不作为正式发布包。'
+    Write-Warning '源码有未提交修改；本次将生成文件名带 -local- 的本地试包，不作为正式发布包。'
 }
 $projectFile = Join-Path $root 'SkyCharacterStudio.csproj'
 $packageScript = Join-Path $root 'tools\package_release.py'
@@ -207,6 +209,7 @@ Require-Path $iconSource '图标源图'
 Require-Path (Join-Path $nativeSource 'build_summon_dat.cpp') 'DAT 构建源码'
 Require-Path (Join-Path $nativeSource 'scherazard_event_starter.cpp') 'EventStarter 构建源码'
 Require-Path (Join-Path $nativeSource 'scene_redirect.cpp') 'SceneRedirect 构建源码'
+Require-Path (Join-Path $root 'native\studio_model_redirect.cpp') '1st 通用资源重定向源码'
 Require-Path $datSource 'DAT 依赖源码'
 Require-Path $nativeInclude 'ED9Loader 头文件'
 Require-Path $python '项目 Python 环境'
@@ -238,13 +241,15 @@ $nativeDirectory = Join-Path $runRoot 'native'
 $portableDirectory = Join-Path $runRoot 'portable'
 $smokeDirectory = Join-Path $runRoot 'smoke'
 $artifactName = if ($sourceDirty) {
-    "SkyCharacterStudio-$version-$RuntimeIdentifier-LOCAL-PREVIEW-$runId.zip"
+    # Explorer extracts to a folder named after the ZIP. Keep the local
+    # preview's stem short enough for bundled NumPy's longest DLL filename.
+    $previewVersion = ($version -split '-', 2)[0]
+    $previewId = $runId.Substring($runId.Length - 8, 6)
+    "SkyCharacterStudio-$previewVersion-local-$previewId.zip"
 } else {
     "SkyCharacterStudio-$version-$RuntimeIdentifier.zip"
 }
 $candidateZip = Join-Path $runRoot $artifactName
-$workspaceParent = [IO.Path]::GetFullPath((Split-Path -Parent $root))
-$cleanDirectory = [IO.Path]::GetFullPath((Join-Path $workspaceParent "Sky1stReleaseQA-$runId"))
 if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {
     $ArtifactDirectory = if ($sourceDirty) {
         Join-Path $root 'release-artifacts\local-previews'
@@ -252,7 +257,11 @@ if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {
         Join-Path $root 'release-artifacts'
     }
 }
+$ArtifactDirectory = [IO.Path]::GetFullPath($ArtifactDirectory)
 $zipPath = Join-Path $ArtifactDirectory $artifactName
+# Use Explorer's default destination for clean-extraction QA, not a shorter
+# developer-only path that can hide MAX_PATH failures from players.
+$cleanDirectory = [IO.Path]::GetFullPath((Join-Path $ArtifactDirectory ([IO.Path]::GetFileNameWithoutExtension($artifactName))))
 $completed = $false
 $gameDirectoryPath = Join-Path $root 'game-directory.txt'
 $gameDirectoryBefore = if (Test-Path -LiteralPath $gameDirectoryPath -PathType Leaf) {
@@ -309,6 +318,15 @@ try {
         "-I$nativeInclude",
         '-o', (Join-Path $nativeDirectory 'SceneRedirect.dll')
     ) '编译 SceneRedirect 插件'
+    Invoke-Checked $gxx @(
+        '-std=c++17', '-O2', '-shared', '-static',
+        (Join-Path $root 'native\studio_model_redirect.cpp'),
+        "-I$nativeInclude",
+        '-o', (Join-Path $nativeDirectory 'StudioModelRedirect.dll')
+    ) '编译 1st 当前版本模型重定向插件'
+    $debugRedirect = Join-Path $root 'runtime-source\first-redirect\1.0.7.0\StudioModelRedirect.dll'
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $debugRedirect) | Out-Null
+    Copy-Item -LiteralPath (Join-Path $nativeDirectory 'StudioModelRedirect.dll') -Destination $debugRedirect -Force
 
     Invoke-Checked $python @(
         '-X', 'utf8', $packageScript,
@@ -400,12 +418,29 @@ try {
         $badEntries = @($archive.Entries | Where-Object {
             $_.FullName -match '(?i)\.(mdl|dat|dds|pac|blend)$'
         })
+        $longestExtractedPath = $null
+        $extractPrefix = $cleanDirectory.TrimEnd('\') + '\'
+        foreach ($entry in $archive.Entries) {
+            if ([string]::IsNullOrEmpty($entry.Name)) { continue }
+            $target = [IO.Path]::GetFullPath((Join-Path $cleanDirectory ($entry.FullName -replace '/', '\')))
+            if (-not $target.StartsWith($extractPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "ZIP 条目超出解压目录：$($entry.FullName)"
+            }
+            if ($null -eq $longestExtractedPath -or $target.Length -gt $longestExtractedPath.Length) {
+                $longestExtractedPath = $target
+            }
+        }
     } finally {
         $archive.Dispose()
     }
     if ($badEntries.Count -gt 0) {
         throw "ZIP 带入游戏资源：$($badEntries[0].FullName)"
     }
+    if ($null -eq $longestExtractedPath) { throw 'ZIP 中没有可解压文件。' }
+    if ($longestExtractedPath.Length -ge 240) {
+        throw "资源管理器默认解压路径过长（$($longestExtractedPath.Length) 字符）：$longestExtractedPath。请缩短包名或用 -ArtifactDirectory 指定较浅的目录。"
+    }
+    Write-Host "Windows 默认解压最长路径：$($longestExtractedPath.Length) 字符（上限 239）。"
 
     Write-Host "`n==> 从最终 ZIP 独立解压"
     Expand-Archive -LiteralPath $candidateZip -DestinationPath $cleanDirectory
@@ -500,9 +535,9 @@ try {
     if ($completed -and -not $KeepStaging) {
         $verifiedStageRoot = [IO.Path]::GetFullPath($stageRoot).TrimEnd('\') + '\'
         $verifiedRunRoot = [IO.Path]::GetFullPath($runRoot)
-        $verifiedWorkspace = $workspaceParent.TrimEnd('\') + '\'
+        $verifiedArtifactRoot = [IO.Path]::GetFullPath($ArtifactDirectory).TrimEnd('\') + '\'
         if (-not $verifiedRunRoot.StartsWith($verifiedStageRoot, [StringComparison]::OrdinalIgnoreCase) -or
-            -not $cleanDirectory.StartsWith($verifiedWorkspace, [StringComparison]::OrdinalIgnoreCase)) {
+            -not $cleanDirectory.StartsWith($verifiedArtifactRoot, [StringComparison]::OrdinalIgnoreCase)) {
             throw '打包临时目录超出预期工作区，已停止清理。'
         }
         if (Test-Path -LiteralPath $runRoot) { Remove-Item -LiteralPath $runRoot -Recurse -Force }
