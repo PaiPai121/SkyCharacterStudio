@@ -30,7 +30,11 @@ class PortableReleaseCheck {
   if(!((TextBlock)w.FindName("TargetGameText")).Text.Contains("1st",StringComparison.Ordinal))throw new Exception("1st target is not shown");
   var scan=(Task)typeof(MainWindow).GetMethod("ScanAsync",F)!.Invoke(w,null)!;Pump(()=>scan.IsCompleted);scan.GetAwaiter().GetResult();
   bool Ready()=>(bool)typeof(MainWindow).GetField("_modelReady",F)!.GetValue(w)!;
-  Pump(Ready);var box=(ComboBox)w.FindName("CharacterBox");var r=box.Items.Cast<CharacterRecord>().Single(r=>r.ModelId=="chr5107");box.SelectedItem=r;Pump(Ready);
+  Pump(Ready);var box=(ComboBox)w.FindName("CharacterBox");
+  var firstCostume=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5000_c01");
+  box.SelectedItem=firstCostume;Pump(Ready,"1st outfit preview");
+  if(((LiveModelView)w.FindName("LiveView")).Geometry.Count==0)throw new Exception("1st outfit has no preview geometry");
+  var r=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5107");box.SelectedItem=r;Pump(Ready);
   if(((CheckBox)w.FindName("SummonTestingBox")).IsChecked==true)throw new Exception("Summon enabled by default");
   if(((LiveModelView)w.FindName("LiveView")).Geometry.Count==0)throw new Exception("No preview geometry");
   var shapeSlider=(Slider)w.FindName("ShapeSlider");var resetButton=(Button)w.FindName("ResetShapeButton");shapeSlider.Value=777;resetButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

@@ -8,6 +8,7 @@ import contextlib
 import hashlib
 import io
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -65,15 +66,17 @@ def main():
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=900)
     parser.add_argument("--model", action="append", help="Limit the audit to a model ID; may be repeated")
+    parser.add_argument("--costumes-only", action="store_true", help="Audit full chr####_c## outfit models")
     args = parser.parse_args()
     game = args.game.resolve(strict=True)
     archive = game / "pac/steam/asset_common_model.pac"
     if not (game / "sora_2nd.exe").is_file() or not archive.is_file():
         raise SystemExit("Expected the installed 2nd Chapter game directory")
+    full_model = re.compile(r"asset/common/model/chr\d{4}(?:_c\d{2})?\.mdl$", re.IGNORECASE)
     rows = [entry for entry in editor.entries(archive)
-            if entry["name"].startswith("asset/common/model/chr")
-            and entry["name"].endswith(".mdl")
-            and "_" not in Path(entry["name"]).stem]
+            if full_model.fullmatch(entry["name"])]
+    if args.costumes_only:
+        rows = [entry for entry in rows if re.fullmatch(r"chr\d{4}_c\d{2}", Path(entry["name"]).stem, re.I)]
     if args.model:
         wanted = set(args.model)
         rows = [entry for entry in rows if Path(entry["name"]).stem in wanted]
@@ -98,7 +101,8 @@ def main():
                 row["version"] = version
                 row.update(inspect(data, mats))
                 task = argparse.Namespace(game=game, model=model_id, mode="width", strength=100,
-                                          out=output, export=True, base_game_character=True, edition="second")
+                                          out=output, export=True, base_game_character=True,
+                                          edition="second", model_source=None, image_pac=None)
                 with contextlib.redirect_stdout(io.StringIO()):
                     editor.run(task)
                 patched = (output / f"{model_id}.mdl").read_bytes()

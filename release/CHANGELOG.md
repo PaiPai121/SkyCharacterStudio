@@ -1,3 +1,9 @@
+# 0.3.7 beta
+
+- Show complete `chr####_c##` costume models as separate selectable resources instead of filtering out every underscored MDL. Animation and mesh-part MDLs remain excluded.
+- Use the 2nd Chapter game's definition label when it identifies a specific outfit. `chr5000` is marked as Estelle's 1st Chapter outfit, while `chr5000_c11` is the separately selectable 2nd Chapter outfit. English labels retain this distinction.
+- Add real-resource preview, round-trip export, isolated installation and restore checks for Estelle's 2nd Chapter outfit. All 301 complete 2nd Chapter costume models also pass the structural width-export audit. Whether an outfit is active in a particular scene and how an edited model behaves in game still require in-game verification.
+
 # 0.3.6 beta
 
 - Removed the exact game-executable hash gate for 2nd Chapter. Installation checks for an x64 Windows executable and readable character model resources; loader integrity, conflict, backup, rollback, and restore checks remain in place.

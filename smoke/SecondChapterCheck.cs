@@ -156,6 +156,47 @@ internal static class SecondChapterCheck
         }
     }
 
+    private static void CheckEstelleCostumeInstall(MainWindow window, string sourceGame,
+        CharacterRecord costume, PacArchive sourceArchive, string workspace)
+    {
+        Console.WriteLine("STAGE isolated Estelle 2nd outfit install and restore");
+        var root = Path.Combine(workspace, "estelle-costume-fixture-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var exe = Path.Combine(root, "sora_2nd.exe");
+        File.Copy(Path.Combine(sourceGame, "sora_2nd.exe"), exe);
+        var exeHash = Hash(exe);
+        var model = Path.Combine(root, "asset", "common", "model", costume.ModelFileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(model)!);
+        File.WriteAllBytes(model, sourceArchive.ReadEntry(costume.ModelEntry));
+        var originalHash = Hash(model);
+
+        ((TextBox)window.FindName("GamePathBox")).Text = root;
+        var scan = (Task)typeof(MainWindow).GetMethod("ScanAsync", Private)!.Invoke(window, null)!;
+        Pump(() => scan.IsCompleted, "isolated Estelle costume scan");
+        scan.GetAwaiter().GetResult();
+        var selector = (ComboBox)window.FindName("CharacterBox");
+        var selected = selector.Items.Cast<CharacterRecord>().Single();
+        if (selected.ModelId != costume.ModelId || selected.ModelEntry.LoosePath is null)
+            throw new InvalidDataException("The isolated 2nd outfit was not selected from its own MDL");
+        selector.SelectedItem = selected;
+        bool Ready() => (bool)typeof(MainWindow).GetField("_modelReady", Private)!.GetValue(window)!;
+        Pump(Ready, "isolated Estelle costume preview");
+        ((Slider)window.FindName("ShapeSlider")).Value = 173;
+        var install = (Task)typeof(MainWindow).GetMethod("InstallCurrentAsync", Private)!.Invoke(window, null)!;
+        Pump(() => install.IsCompleted, "isolated Estelle costume install");
+        install.GetAwaiter().GetResult();
+        var outputRoot = outputRootForPreview();
+        var exported = Path.Combine(outputRoot, "exports", "second", costume.ModelId + "_width_173",
+            "asset", "common", "model", costume.ModelFileName);
+        var loader = Path.Combine(root, "xinput1_4.dll");
+        if (!File.Exists(exported) || !File.Exists(loader) || Hash(model) != Hash(exported)
+            || Hash(model) == originalHash || Hash(exe) != exeHash)
+            throw new InvalidDataException("The Estelle 2nd outfit was not installed under its own model ID");
+        GameInstaller.RestoreLatest(root, Path.Combine(outputRoot, "install-backups"), () => false);
+        if (File.Exists(loader) || Hash(model) != originalHash || Hash(exe) != exeHash)
+            throw new InvalidDataException("The Estelle 2nd outfit was not restored to the original model");
+    }
+
     [STAThread]
     private static void Main()
     {
@@ -185,8 +226,8 @@ internal static class SecondChapterCheck
         Pump(() => scan.IsCompleted, "scan");
         scan.GetAwaiter().GetResult();
         var records = ((ComboBox)window.FindName("CharacterBox")).Items.Cast<CharacterRecord>().ToList();
-        if (records.Count != 170 || records.Any(record => record.Edition != GameEdition.Second))
-            throw new InvalidDataException($"Expected 170 2nd Chapter characters; found {records.Count}");
+        if (records.Count != 470 || records.Any(record => record.Edition != GameEdition.Second))
+            throw new InvalidDataException($"Expected 169 base and 301 costume models; found {records.Count}");
 
         var child = records.Single(record => record.ModelId == "chr5344");
         var childWithAge = records.Single(record => record.ModelId == "chr5345");
@@ -200,6 +241,20 @@ internal static class SecondChapterCheck
 
         var adult = records.Single(record => record.ModelId == "chr5002");
         var unknown = records.Single(record => record.ModelId == "chr5000");
+        var estelleSecond = records.Single(record => record.ModelId == "chr5000_c11");
+        if (!unknown.DisplayName.Contains("1st版服装", StringComparison.Ordinal)
+            || !estelleSecond.DisplayName.Contains("2nd版轻装服装", StringComparison.Ordinal)
+            || estelleSecond.AdultShapeEligible)
+            throw new InvalidDataException("Estelle's original and 2nd Chapter outfit resources were not distinguished");
+        var previousLanguage = UiText.Current;
+        try
+        {
+            UiText.SetLanguage(UiLanguage.English, persist: false);
+            if (!unknown.LocalizedName.Contains("1st outfit", StringComparison.Ordinal)
+                || !estelleSecond.LocalizedName.Contains("2nd outfit", StringComparison.Ordinal))
+                throw new InvalidDataException("English outfit labels hide the 1st/2nd model distinction");
+        }
+        finally { UiText.SetLanguage(previousLanguage, persist: false); }
         var archive = (PacArchive)typeof(MainWindow).GetField("_modelArchive", Private)!.GetValue(window)!;
         var modelHash = Convert.ToHexString(SHA256.HashData(archive.ReadEntry(adult.ModelEntry)));
         if (!adult.AdultShapeEligible || unknown.AdultShapeEligible)
@@ -213,6 +268,15 @@ internal static class SecondChapterCheck
         Pump(Ready, "v4 preview");
         if (((LiveModelView)window.FindName("LiveView")).Geometry.Count == 0)
             throw new InvalidDataException("No MDL v4 preview geometry");
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = estelleSecond;
+        Console.WriteLine("STAGE preview Estelle 2nd Chapter costume model");
+        Pump(Ready, "Estelle 2nd outfit preview");
+        if (((LiveModelView)window.FindName("LiveView")).Geometry.Count == 0)
+            throw new InvalidDataException("Estelle 2nd outfit has no preview geometry");
+        CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5000_c11", 0);
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = unknown;
+        Pump(Ready, "Estelle 1st outfit preview");
+        CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5000", 0);
         ((ComboBox)window.FindName("CharacterBox")).SelectedItem = adult;
         Console.WriteLine("STAGE preview MDL v5 and loading panel");
         if (((FrameworkElement)window.FindName("PreviewLoadingPanel")).Visibility != Visibility.Visible
@@ -278,7 +342,9 @@ internal static class SecondChapterCheck
             throw new InvalidDataException("Offline export reported the wrong model path");
         CheckLooseAndRenamedSources(window, game, adult, archive,
             Environment.GetEnvironmentVariable("SKY1ST_SMOKE_ROOT") ?? outputRoot);
-        Console.WriteLine("PASS scan 170; v4/v5 preview; loading state; per-game age gate; local export; executable hash, selected model hash, PAC metadata and proxy state unchanged");
+        CheckEstelleCostumeInstall(window, game, estelleSecond, archive,
+            Environment.GetEnvironmentVariable("SKY1ST_SMOKE_ROOT") ?? outputRoot);
+        Console.WriteLine("PASS scan 169 base plus 301 costume models; Estelle 2nd outfit preview; v4/v5 preview; loading state; per-game age gate; local export; executable hash, selected model hash, PAC metadata and proxy state unchanged");
         app.Shutdown();
     }
 

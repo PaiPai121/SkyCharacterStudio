@@ -224,17 +224,18 @@ public static class CharacterScanner
             var slash = entry.Name.LastIndexOf('/');
             var fileName = slash >= 0 ? entry.Name[(slash + 1)..] : entry.Name;
             if (!entry.Name.StartsWith("asset/common/model/", StringComparison.OrdinalIgnoreCase)
-                || !fileName.StartsWith("chr", StringComparison.OrdinalIgnoreCase)
-                || !fileName.EndsWith(".mdl", StringComparison.OrdinalIgnoreCase)
-                || fileName.Contains('_')) continue;
+                || !IsCharacterModelFile(fileName)) continue;
 
             var id = fileName[..^4];
-            if (id.Length < 4) continue;
             var face = ChoosePreview(imageEntries, id);
             var info = FindModelInfo(modelInfoArchive, id);
             detailedNames.TryGetValue(id, out var nameInfo);
             var catalogName = edition == GameEdition.Second ? CharacterAgeCatalog.Get(id, edition: edition).Name : "";
-            var displayName = !string.IsNullOrWhiteSpace(catalogName) ? catalogName
+            // A definition can identify an outfit more precisely than an age-catalog
+            // person label (for example, a model retained from the previous game).
+            var displayName = edition == GameEdition.Second && nameInfo?.IsDefinition == true
+                ? nameInfo.Label
+                : !string.IsNullOrWhiteSpace(catalogName) ? catalogName
                 : nameInfo?.Label ?? (names.TryGetValue(id, out var known) ? known : $"未登记名称 · {id}");
             records.Add(new CharacterRecord
             {
@@ -255,12 +256,24 @@ public static class CharacterScanner
             .ThenBy(x => x.ModelId, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    private static bool IsCharacterModelFile(string fileName)
+    {
+        if (!fileName.EndsWith(".mdl", StringComparison.OrdinalIgnoreCase)) return false;
+        var id = fileName.AsSpan(0, fileName.Length - 4);
+        if (id.Length is not (7 or 11) || !id[..3].Equals("chr", StringComparison.OrdinalIgnoreCase))
+            return false;
+        for (var i = 3; i < 7; i++) if (!char.IsAsciiDigit(id[i])) return false;
+        // Full costume models use chr####_c##. Other suffixed MDLs are
+        // animations, props or mesh parts and cannot be edited as outfits.
+        return id.Length == 7 || (id[7] == '_' && (id[8] is 'c' or 'C')
+            && char.IsAsciiDigit(id[9]) && char.IsAsciiDigit(id[10]));
+    }
+
     private static PacEntry? FindModelInfo(PacArchive? archive, string modelId)
     {
         if (archive is null) return null;
         return archive.Entries.FirstOrDefault(entry =>
-            entry.Name.Contains('/' + modelId, StringComparison.OrdinalIgnoreCase)
-            && entry.Name.EndsWith(".mdl", StringComparison.OrdinalIgnoreCase));
+            System.IO.Path.GetFileName(entry.Name).Equals(modelId + ".mdl", StringComparison.OrdinalIgnoreCase));
     }
 
     private static PacEntry? ChoosePreview(IReadOnlyList<PacEntry> entries, string modelId)

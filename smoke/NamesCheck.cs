@@ -6,6 +6,10 @@ class NamesCheck {
  var names=CharacterNames.Load(root);
  foreach(var p in new[]{("chr0003","奥利维尔"),("chr0005","阿加特"),("chr0007","阵"),("chr5002","雪拉扎德")})if(!names[p.Item1].Contains(p.Item2))throw new Exception("Wrong identity");
  var records=CharacterScanner.Build(PacArchive.Load(Path.Combine(root,"asset_common_model.pac")),null,null);
+ if(records.Count(r=>r.ModelId.Contains("_c",StringComparison.OrdinalIgnoreCase))!=176
+    || !records.Any(r=>r.ModelId=="chr5000_c01")
+    || records.Any(r=>r.ModelId.Contains("_m_",StringComparison.OrdinalIgnoreCase)))
+    throw new Exception("Complete 1st costume models were hidden or animation MDLs were scanned");
  Console.WriteLine($"Mapped {records.Count(r=>names.ContainsKey(r.ModelId))}/{records.Count} scanned models from game name table");
  Console.WriteLine("Unregistered: "+string.Join(",",records.Where(r=>!names.ContainsKey(r.ModelId)).Select(r=>r.ModelId)));
  try{CharacterNames.Parse(new byte[8]);throw new Exception("Invalid data accepted");}catch(InvalidDataException){}

@@ -294,7 +294,17 @@ public static class UiText
     public static string CharacterName(string modelId, string sourceName)
     {
         if (!IsEnglish) return sourceName;
-        if (EnglishCharacterNames.TryGetValue(modelId, out var known)) return known;
+        var costume = modelId.Length == 11 && modelId[7] == '_'
+            && (modelId[8] is 'c' or 'C') ? modelId[8..] : null;
+        var personId = costume is null ? modelId : modelId[..7];
+        if (EnglishCharacterNames.TryGetValue(personId, out var known))
+        {
+            var outfit = sourceName.Contains("1st版服装", StringComparison.OrdinalIgnoreCase) ? "1st outfit"
+                : sourceName.Contains("2nd版轻装服装", StringComparison.OrdinalIgnoreCase) ? "2nd outfit"
+                : null;
+            if (costume is not null) return $"{known} ({outfit ?? "costume"} · {costume})";
+            return outfit is null ? known : $"{known} ({outfit})";
+        }
         if (string.IsNullOrWhiteSpace(sourceName)) return $"Character {modelId}";
         if (sourceName.StartsWith("角色 ", StringComparison.Ordinal)
             || sourceName.StartsWith("未登记名称", StringComparison.Ordinal)
