@@ -36,9 +36,9 @@ class PortableReleaseCheck {
   if(firstCostume.AgeDefinitionLabel is null || firstCostume.AdultShapeEligible ||
      !adultCostume.AdultShapeEligible || adultCostume.AgeInfo.Age!=23 ||
      adultCostume.AgeDefinitionLabel is null ||
-     CharacterAgeCatalog.Get("chr5002_c01",true,GameEdition.First).IsAdult ||
-     CharacterAgeCatalog.Get("chr5002_c01",true,GameEdition.First,"其他角色：泡澡服").IsAdult)
-   throw new Exception("1st costume age inheritance ignored the game's definition or admitted an unverified identity");
+     !CharacterAgeCatalog.Get("chr5002_c01",true,GameEdition.First).IsAdult ||
+     !CharacterAgeCatalog.Get("chr5002_c01",true,GameEdition.First,"其他角色：泡澡服").IsAdult)
+   throw new Exception("1st costume age inheritance ignored the game's definition or refused a non-minor default");
   box.SelectedItem=firstCostume;Pump(Ready,"1st outfit preview");
   if(((LiveModelView)w.FindName("LiveView")).Geometry.Count==0)throw new Exception("1st outfit has no preview geometry");
   if(((ComboBoxItem)w.FindName("ChestModeItem")).IsEnabled)throw new Exception("1st minor costume enabled chest editing");

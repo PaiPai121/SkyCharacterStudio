@@ -242,15 +242,15 @@ internal static class SecondChapterCheck
         var adult = records.Single(record => record.ModelId == "chr5002");
         var adultCostume = records.Single(record => record.ModelId == "chr5002_c01");
         var minorCostume = records.Single(record => record.ModelId == "chr5000_c01");
-        var unknown = records.Single(record => record.ModelId == "chr5000");
+        var estelleFirstOutfit = records.Single(record => record.ModelId == "chr5000");
         var estelleSecond = records.Single(record => record.ModelId == "chr5000_c11");
         if (!adultCostume.AdultShapeEligible || adultCostume.AgeDefinitionLabel is null
             || minorCostume.AdultShapeEligible || minorCostume.AgeDefinitionLabel is null
-            || CharacterAgeCatalog.Get("chr5002_c01", true, GameEdition.Second).IsAdult
-            || CharacterAgeCatalog.Get("chr5002_c01", true, GameEdition.Second,
+            || !CharacterAgeCatalog.Get("chr5002_c01", true, GameEdition.Second).IsAdult
+            || !CharacterAgeCatalog.Get("chr5002_c01", true, GameEdition.Second,
                 "其他角色：泡澡服").IsAdult)
-            throw new InvalidDataException("2nd costume age inheritance ignored the game's definition or admitted an unverified identity");
-        if (!unknown.DisplayName.Contains("1st版服装", StringComparison.Ordinal)
+            throw new InvalidDataException("2nd costume age inheritance ignored the game's definition or refused a non-minor default");
+        if (!estelleFirstOutfit.DisplayName.Contains("1st版服装", StringComparison.Ordinal)
             || !estelleSecond.DisplayName.Contains("2nd版轻装服装", StringComparison.Ordinal)
             || estelleSecond.AdultShapeEligible)
             throw new InvalidDataException("Estelle's original and 2nd Chapter outfit resources were not distinguished");
@@ -258,14 +258,20 @@ internal static class SecondChapterCheck
         try
         {
             UiText.SetLanguage(UiLanguage.English, persist: false);
-            if (!unknown.LocalizedName.Contains("1st outfit", StringComparison.Ordinal)
+            if (!estelleFirstOutfit.LocalizedName.Contains("1st outfit", StringComparison.Ordinal)
                 || !estelleSecond.LocalizedName.Contains("2nd outfit", StringComparison.Ordinal))
                 throw new InvalidDataException("English outfit labels hide the 1st/2nd model distinction");
         }
         finally { UiText.SetLanguage(previousLanguage, persist: false); }
         var archive = (PacArchive)typeof(MainWindow).GetField("_modelArchive", Private)!.GetValue(window)!;
         var modelHash = Convert.ToHexString(SHA256.HashData(archive.ReadEntry(adult.ModelEntry)));
-        if (!adult.AdultShapeEligible || unknown.AdultShapeEligible)
+        // The 2nd catalog records chr5000 as Estelle herself, so both her 1st and
+        // 2nd Chapter outfit models stay minor-blocked; an unlisted non-minor
+        // model must fall back to the defaulted-adult rule instead.
+        if (!adult.AdultShapeEligible || estelleFirstOutfit.AdultShapeEligible
+            || !estelleFirstOutfit.AgeInfo.Catalogued
+            || !CharacterAgeCatalog.Get("chr5500", true, GameEdition.Second).IsAdult
+            || CharacterAgeCatalog.Get("chr5500", true, GameEdition.Second).Catalogued)
             throw new InvalidDataException("Edition-specific age eligibility mismatch");
         ((ComboBox)window.FindName("CharacterBox")).SelectedItem = adultCostume;
         Pump(Ready, "adult costume preview");
@@ -297,7 +303,7 @@ internal static class SecondChapterCheck
         if (((LiveModelView)window.FindName("LiveView")).Geometry.Count == 0)
             throw new InvalidDataException("Estelle 2nd outfit has no preview geometry");
         CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5000_c11", 0);
-        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = unknown;
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = estelleFirstOutfit;
         Pump(Ready, "Estelle 1st outfit preview");
         CapturePreview((LiveModelView)window.FindName("LiveView"), "chr5000", 0);
         ((ComboBox)window.FindName("CharacterBox")).SelectedItem = adult;

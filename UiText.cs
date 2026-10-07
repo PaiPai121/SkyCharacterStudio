@@ -114,14 +114,14 @@ public static class UiText
             ["scherazard.contour"] = ("雪拉扎德轮廓", "Scherazard contour"),
             ["preview.adjusted.info"] = ("实时预览：{0}% · 导出使用同一强度。{1}；光照以游戏内为准。", "Live preview: {0}% · exports use the same strength. {1}; lighting is determined by the game."),
             ["preview.original.info"] = ("正在对照原版（0%）；返回当前调整可查看 {0}%。", "Comparing with the original (0%); choose “Show adjusted” to view {0}% again."),
-            ["age.unknown"] = ("年龄未核实", "Age not verified"),
-            ["age.unverified"] = ("身份与年龄未核实", "Identity and age not verified"),
+            ["age.unknown"] = ("年龄未核实 · 默认成年", "Age not verified · adult by default"),
+            ["age.unverified"] = ("身份与年龄未核实 · 默认成年", "Identity and age not verified · adult by default"),
             ["age.adult"] = ("已确认成年", "Confirmed adult"),
-            ["age.adult.default"] = ("原生未登记角色 · 默认成年", "Base-game character not listed · adult by default"),
+            ["age.adult.default"] = ("年龄目录未登记 · 默认成年", "Not listed in the age catalog · adult by default"),
             ["age.minor"] = ("已确认未成年", "Confirmed minor"),
             ["age.years"] = ("{0} 岁", "age {0}"),
-            ["age.basis.default"] = ("尚无可核对的本作年龄资料", "No verifiable age information is available for this game"),
-            ["age.basis.archive"] = ("由游戏原始模型归档扫描发现；年龄目录未将其标记为未成年", "Found in the original game model archive; the age catalog does not mark it as a minor"),
+            ["age.basis.default"] = ("年龄目录未登记该模型；目录未将其标为未成年，故按默认成年处理", "The model is absent from the age catalog; it is not marked as a minor, so it is treated as a defaulted adult"),
+            ["age.basis.archive"] = ("由游戏原始模型归档扫描发现；年龄目录未将其标记为未成年，故按成年处理", "Found in the original game model archive; the age catalog does not mark it as a minor, so it is treated as an adult"),
             ["age.basis.official"] = ("《空之轨迹 the 1st》角色介绍公布年龄", "Published character age for Trails in the Sky the 1st"),
             ["age.basis.second"] = ("前作官方年龄已确认成年；已核对《空之轨迹 the 2nd》名称表中的同编号角色。未推定本作具体年龄。", "The previous game's published age confirms adulthood; the same character ID was checked in the 2nd Chapter name table. No exact age is inferred for this game."),
             ["age.basis.table"] = ("本作资源表明确标注：", "Identified by the game's resource table: "),
@@ -339,13 +339,15 @@ public static class UiText
 
     public static string AgeDisplay(CharacterAgeInfo info)
     {
+        // The policy treats every record except a catalogued minor as a usable
+        // adult, so anything without a reviewed status is shown as "adult by
+        // default" rather than as a blocked state.
         var key = info.Status switch
         {
-            "adult" when info.IsAdult && info.DefaultedFromBaseGame => "age.adult.default",
-            "adult" when info.IsAdult => "age.adult",
+            "adult" when info.Catalogued => "age.adult",
             "minor" => "age.minor",
             "unverified" => "age.unverified",
-            _ => "age.unknown"
+            _ => info.Catalogued ? "age.unknown" : "age.adult.default"
         };
         return info.Age.HasValue ? $"{T(key)} · {F("age.years", info.Age.Value)}" : T(key);
     }
@@ -353,6 +355,7 @@ public static class UiText
     public static string AgeBasis(string basis, string source)
     {
         if (!IsEnglish) return basis;
+        if (basis.StartsWith("年龄目录未登记该模型", StringComparison.Ordinal)) return T("age.basis.default");
         if (basis.StartsWith("由游戏原始模型归档扫描发现", StringComparison.Ordinal)) return T("age.basis.archive");
         if (basis.StartsWith("前作官方年龄为", StringComparison.Ordinal)) return "The previous game's published age indicates a minor. This game's exact age was not inferred.";
         if (basis.StartsWith("前作官方年龄", StringComparison.Ordinal)) return T("age.basis.second");

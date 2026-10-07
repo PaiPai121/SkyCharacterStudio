@@ -1,3 +1,10 @@
+# 0.3.9 beta
+
+- Treat the age catalogs as a deny-list of minors in both editions: a model the catalog does not list is now a "defaulted adult" and can use chest editing, labelled "年龄目录未登记 · 默认成年" / "Not listed in the age catalog · adult by default". Every catalogued minor (Estelle, Joshua, Kloe, Tita, Josette, the child models, `chr5345` at 11) stays restricted to width editing.
+- Apply the same rule to a catalogued-but-unverified identity: `chr5710` is now eligible and shown as "身份与年龄未核实 · 默认成年", keeping its "the resource label does not establish the identity" basis text.
+- Keep costume inheritance intact: a costume still copies a character's status only when a game definition row names that catalogued character; otherwise it falls back to the defaulted-adult rule instead of being refused.
+- Change eligibility in `CharacterAgeCatalog.cs` and `tools/character_age.py` together so the studio UI, the preview and the export metadata (`adult_eligible`) always agree. The catalog JSON files are unchanged, so both reviewed catalog hashes still match.
+
 # 0.3.8 beta
 
 - Let a complete costume model inherit a character's age status only when the selected game's name table has a definition row identifying that character. Numeric model IDs and scene aliases alone do not establish identity.
