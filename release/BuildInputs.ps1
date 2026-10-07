@@ -40,17 +40,14 @@ function Resolve-StudioToolchain {
     throw "找不到打包用 Python 工具链。已检查当前检出及主工作树的同级目录；可用 -ToolchainRoot 指定含 .venv\Scripts\python.exe 的目录。"
 }
 
-function Assert-StudioCleanSource {
+function Test-StudioCleanSource {
     param([Parameter(Mandatory = $true)][string]$Repository)
     $git = Get-Command git -ErrorAction SilentlyContinue
     if ($null -eq $git) { throw '找不到 Git；打包清单需要记录源码提交。' }
     $safeDirectory = [IO.Path]::GetFullPath($Repository).Replace('\', '/')
     $status = @(& $git.Source -c "safe.directory=$safeDirectory" -C $Repository status --porcelain=v1 --untracked-files=all)
     if ($LASTEXITCODE -ne 0) { throw '无法读取 Git 工作树状态，已停止打包。' }
-    if ($status.Count -gt 0) {
-        $sample = ($status | Select-Object -First 8) -join '; '
-        throw "源码有未提交修改，已停止打包：$sample。请先提交或移走修改，再运行 BuildRelease.cmd。"
-    }
+    return $status.Count -eq 0
 }
 
 function Get-StudioGameEdition {

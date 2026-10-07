@@ -176,7 +176,10 @@ function Invoke-SecondInstallCheck {
 
 $root = (Get-Location).Path
 . (Join-Path $root 'release\BuildInputs.ps1')
-Assert-StudioCleanSource -Repository $root
+$sourceDirty = -not (Test-StudioCleanSource -Repository $root)
+if ($sourceDirty) {
+    Write-Warning '源码有未提交修改；本次将生成带 LOCAL-PREVIEW 标记的本地试包，不作为正式发布包。'
+}
 $projectFile = Join-Path $root 'SkyCharacterStudio.csproj'
 $packageScript = Join-Path $root 'tools\package_release.py'
 $iconScript = Join-Path $root 'tools\make_app_icon.py'
@@ -234,13 +237,22 @@ $buildDirectory = Join-Path $runRoot 'app'
 $nativeDirectory = Join-Path $runRoot 'native'
 $portableDirectory = Join-Path $runRoot 'portable'
 $smokeDirectory = Join-Path $runRoot 'smoke'
-$candidateZip = Join-Path $runRoot "SkyCharacterStudio-$version-$RuntimeIdentifier.zip"
+$artifactName = if ($sourceDirty) {
+    "SkyCharacterStudio-$version-$RuntimeIdentifier-LOCAL-PREVIEW-$runId.zip"
+} else {
+    "SkyCharacterStudio-$version-$RuntimeIdentifier.zip"
+}
+$candidateZip = Join-Path $runRoot $artifactName
 $workspaceParent = [IO.Path]::GetFullPath((Split-Path -Parent $root))
 $cleanDirectory = [IO.Path]::GetFullPath((Join-Path $workspaceParent "Sky1stReleaseQA-$runId"))
 if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {
-    $ArtifactDirectory = Join-Path $root 'release-artifacts'
+    $ArtifactDirectory = if ($sourceDirty) {
+        Join-Path $root 'release-artifacts\local-previews'
+    } else {
+        Join-Path $root 'release-artifacts'
+    }
 }
-$zipPath = Join-Path $ArtifactDirectory "SkyCharacterStudio-$version-$RuntimeIdentifier.zip"
+$zipPath = Join-Path $ArtifactDirectory $artifactName
 $completed = $false
 $gameDirectoryPath = Join-Path $root 'game-directory.txt'
 $gameDirectoryBefore = if (Test-Path -LiteralPath $gameDirectoryPath -PathType Leaf) {
@@ -307,6 +319,9 @@ try {
         '--version', $version
     ) '按白名单组装便携发布目录'
     $manifest = Test-PortableDirectory $portableDirectory $version
+    if ([bool]$manifest.source_dirty -ne $sourceDirty) {
+        throw '打包过程中源码提交状态发生变化；已停止生成结果，请核对工作树后重试。'
+    }
 
     if ($SkipSmoke) { Write-Host '已按参数跳过 WPF 离线检查。' }
     foreach ($target in $gameTargets) {
