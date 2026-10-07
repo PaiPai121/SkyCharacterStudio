@@ -1,3 +1,9 @@
+# 0.3.11 beta
+
+- Remove the extra write-and-delete probe in the game root before installation. Installation now tests only the files it actually needs to update; an existing identical loader can remain untouched while a model under `asset/common/model` is updated.
+- If an actual target write fails, report the underlying error and backup path after rollback instead of suggesting a sandbox or other unverified cause.
+- Add an isolated 2nd Chapter regression where Windows denies new files in the game root but permits a model update in its existing model folder. Install and Undo both pass without changing real game files. The reported user's normal-launch environment still needs a retry with this build.
+
 # 0.3.10 beta
 
 - Reset to overall-width preview when selecting a different character or costume, then enable chest editing only if that exact model passes geometry detection. This prevents unsupported 2nd Chapter costumes such as `chr5002_c74` from inheriting the previous model's chest mode and failing to preview.

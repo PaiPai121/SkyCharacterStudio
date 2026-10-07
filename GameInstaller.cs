@@ -102,7 +102,6 @@ public static class GameInstaller
         runningCheck ??= () => IsGameRunning(gameRoot);
         if (runningCheck()) throw new InvalidOperationException(UiText.T("error.game.running"));
         ValidateInstallTarget(gameRoot);
-        ValidateGameRootWritable(gameRoot);
         var edition = GameEditionInfo.Detect(gameRoot);
         package = Path.GetFullPath(package);
         var requiredPaths = edition == GameEdition.Second
@@ -197,42 +196,8 @@ public static class GameInstaller
             Record(errors.Count==0 ? "rolled-back" : "rollback-incomplete",
                 identical.Count==0 ? null : UiText.F("install.note.identical", identical.Count));
             if(errors.Count==0) RemoveEmptyDirectories(createdDirectories);
-            if(errors.Count>0) throw new AggregateException(UiText.F("error.install.rollback.incomplete", backup),errors.Prepend(failure));
-            throw new IOException(UiText.F("error.install.rollback", backup),failure);
-        }
-    }
-
-    /// <summary>
-    /// Fails up front with a clear message when the game directory refuses new
-    /// files (for example when the studio runs inside a restricted sandbox, under
-    /// Controlled Folder Access, or in a Steam library owned by another account)
-    /// instead of failing halfway through the copy list.
-    /// </summary>
-    public static void ValidateGameRootWritable(string gameRoot, Func<bool>? runningCheck = null)
-    {
-        runningCheck ??= () => IsGameRunning(gameRoot);
-        var probe = Path.Combine(gameRoot, ".sky-studio-write-probe-" + Guid.NewGuid().ToString("N")[..8]);
-        try
-        {
-            using (var stream = new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                stream.WriteByte(0x53);
-            File.Delete(probe);
-        }
-        catch (UnauthorizedAccessException error)
-        {
-            throw new IOException(UiText.F("error.game.root.readonly", gameRoot), error);
-        }
-        catch (IOException error) when (runningCheck())
-        {
-            throw new IOException(UiText.T("error.install.interrupted"), error);
-        }
-        catch (IOException error)
-        {
-            throw new IOException(UiText.F("error.game.root.readonly", gameRoot), error);
-        }
-        finally
-        {
-            try { if (File.Exists(probe)) File.Delete(probe); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            if(errors.Count>0) throw new AggregateException(UiText.F("error.install.rollback.incomplete", failure.Message, backup),errors.Prepend(failure));
+            throw new IOException(UiText.F("error.install.rollback", failure.Message, backup),failure);
         }
     }
 

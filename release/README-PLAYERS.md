@@ -1,4 +1,4 @@
-# Sky Character Studio — 0.3.10 beta
+# Sky Character Studio — 0.3.11 beta
 
 Windows x64 character shape editor for the Clouded Leopard Entertainment Steam editions of Trails in the Sky the 1st and Trails in the Sky 2nd Chapter. The 2nd Chapter installer checks the executable and model resources without an exact game EXE hash gate; the 1st Chapter address-specific plugins still require inspected EXE hashes. The studio backs up replaced files and supports Undo last installation for both games. The reported 2nd Chapter 1.03.1 build and the generated model still need an in-game appearance/animation check.
 

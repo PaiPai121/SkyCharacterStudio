@@ -1,6 +1,8 @@
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -97,6 +99,55 @@ internal static class SecondInstallCheck
         var backupRoot = Path.Combine(testRoot, "backups");
         var targetLoader = Path.Combine(fakeGame, "xinput1_4.dll");
         var targetModel = Path.Combine(fakeGame, "asset", "common", "model", "chr5002.mdl");
+        Console.WriteLine("STAGE install when game root denies new files but model folder is writable");
+        var restricted = Path.Combine(testRoot, "root-create-denied-game");
+        var restrictedPac = Path.Combine(restricted, "pac", "steam");
+        var restrictedModelFolder = Path.Combine(restricted, "asset", "common", "model");
+        Directory.CreateDirectory(restrictedPac);
+        Directory.CreateDirectory(restrictedModelFolder);
+        File.Copy(fakeExe, Path.Combine(restricted, "sora_2nd.exe"));
+        File.Copy(fakePac, Path.Combine(restrictedPac, "asset_common_model.pac"));
+        File.Copy(Path.Combine(fakeGame, "pac", "steam", "image.pac"),
+            Path.Combine(restrictedPac, "image.pac"));
+        var restrictedLoader = Path.Combine(restricted, "xinput1_4.dll");
+        var restrictedModel = Path.Combine(restrictedModelFolder, "chr5002.mdl");
+        File.Copy(Path.Combine(package, "xinput1_4.dll"), restrictedLoader);
+        File.WriteAllBytes(restrictedModel, sourceArchive.ReadEntry(record.ModelEntry));
+        var originalRestrictedModelHash = Hash(restrictedModel);
+        var restrictedDirectory = new DirectoryInfo(restricted);
+        var access = restrictedDirectory.GetAccessControl();
+        var identity = WindowsIdentity.GetCurrent().User
+            ?? throw new InvalidOperationException("Current Windows user has no SID");
+        var denyRootCreate = new FileSystemAccessRule(identity, FileSystemRights.CreateFiles,
+            InheritanceFlags.None, PropagationFlags.None, AccessControlType.Deny);
+        access.AddAccessRule(denyRootCreate);
+        restrictedDirectory.SetAccessControl(access);
+        try
+        {
+            var forbiddenProbe = Path.Combine(restricted, "should-not-be-created.tmp");
+            try
+            {
+                using var stream = new FileStream(forbiddenProbe, FileMode.CreateNew, FileAccess.Write);
+                throw new InvalidDataException("Root-create denial fixture did not block the old probe");
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (IOException) when (!File.Exists(forbiddenProbe)) { }
+            var restrictedBackup = GameInstaller.Install(package, restricted,
+                Path.Combine(testRoot, "restricted-backups"), () => false);
+            if (Hash(restrictedLoader) != loaderHash || Hash(restrictedModel) != Hash(result.ModelPath))
+                throw new InvalidDataException("Installer required an unnecessary game-root write");
+            GameInstaller.RestoreLatest(restricted, Path.Combine(testRoot, "restricted-backups"), () => false);
+            if (Hash(restrictedLoader) != loaderHash || Hash(restrictedModel) != originalRestrictedModelHash
+                || !File.Exists(Path.Combine(restrictedBackup, "installation.json")))
+                throw new InvalidDataException("Root-create denial fixture did not restore the model");
+        }
+        finally
+        {
+            access.RemoveAccessRuleSpecific(denyRootCreate);
+            restrictedDirectory.SetAccessControl(access);
+            var forbiddenProbe = Path.Combine(restricted, "should-not-be-created.tmp");
+            if (File.Exists(forbiddenProbe)) File.Delete(forbiddenProbe);
+        }
         Console.WriteLine("STAGE install and restore in isolated game copy");
         var backup = GameInstaller.Install(package, fakeGame, backupRoot, () => false);
         if (!File.Exists(Path.Combine(backup, "installation.json"))
