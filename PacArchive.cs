@@ -217,8 +217,7 @@ public static class CharacterScanner
         var archiveDirectory = System.IO.Path.GetDirectoryName(modelArchive.Path)!;
         var names = edition == GameEdition.First
             ? CharacterNames.Load(archiveDirectory) : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var detailedNames = edition == GameEdition.Second
-            ? CharacterNames.LoadDetails(archiveDirectory) : new Dictionary<string, CharacterNameInfo>(StringComparer.OrdinalIgnoreCase);
+        var detailedNames = CharacterNames.LoadDetails(archiveDirectory);
         foreach (var entry in modelArchive.Entries)
         {
             var slash = entry.Name.LastIndexOf('/');
@@ -249,6 +248,7 @@ public static class CharacterScanner
                 PreviewEntry = face,
                 IsSupportedShapeEdit = true,
                 IsBaseGameCharacter = true,
+                AgeDefinitionLabel = nameInfo?.IsDefinition == true ? nameInfo.Label : null,
                 Edition = edition
             });
         }

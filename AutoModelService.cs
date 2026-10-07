@@ -11,7 +11,7 @@ public static class AutoModelService
 
     public static async Task Run(string game, string model, string mode, string output,
         int? strength = null, bool isBaseGameCharacter = false, CancellationToken cancellationToken = default,
-        string? modelSource = null, string? imageArchive = null)
+        string? modelSource = null, string? imageArchive = null, string? ageDefinitionLabel = null)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(OperationTimeout);
@@ -48,6 +48,11 @@ public static class AutoModelService
                 start.ArgumentList.Add(imageArchive);
             }
             if (isBaseGameCharacter) start.ArgumentList.Add("--base-game-character");
+            if (!string.IsNullOrWhiteSpace(ageDefinitionLabel))
+            {
+                start.ArgumentList.Add("--age-definition-label");
+                start.ArgumentList.Add(ageDefinitionLabel);
+            }
             if (strength.HasValue)
             {
                 start.ArgumentList.Add("--export");

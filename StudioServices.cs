@@ -266,7 +266,8 @@ public static class ExportService
         var modelPath = System.IO.Path.Combine(modelRoot, record.ModelFileName);
         var game=GameEditionInfo.RootFromModelArchive(modelArchive.Path);
         await AutoModelService.Run(game,record.ModelId,mode,modelRoot,strength,record.IsBaseGameCharacter,
-            modelSource:record.ModelEntry.LoosePath ?? modelArchive.ArchivePath);
+            modelSource:record.ModelEntry.LoosePath ?? modelArchive.ArchivePath,
+            ageDefinitionLabel:record.AgeDefinitionLabel);
         var shapeApplied=true;
         string helperMessage = UiText.T(mode.Equals("chest", StringComparison.OrdinalIgnoreCase)
             ? "export.helper.chest" : "export.helper.width");

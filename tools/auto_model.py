@@ -95,7 +95,7 @@ def _chest_region(pair, nodes, center, height):
         'height':height,
     }
 
-def profile(data, model_id, mode, is_base_game_character=False, edition='first'):
+def profile(data, model_id, mode, is_base_game_character=False, edition='first', age_definition_label=None):
     nodes={n['name']:np.array(n['matrix'][3][:3]) for g in data['mesh_blocks'] for n in g.get('nodes',[])}
     allpos=np.concatenate([np.array(next(b['Buffer'] for b in p['vb'] if b['SemanticName']=='POSITION')) for g in data['mesh_buffers'] for p in g])
     height=float(np.ptp(allpos[:,1]));center=float((allpos[:,0].min()+allpos[:,0].max())/2)
@@ -107,7 +107,7 @@ def profile(data, model_id, mode, is_base_game_character=False, edition='first')
     if height<=1e-8: raise ValueError('Invalid model bounds')
     regions=[]
     if mode=='chest':
-        if not adult_eligible(model_id,is_base_game_character,edition): raise ValueError('Chest editing requires adult character metadata: '+age_info(model_id,is_base_game_character,edition)['status'])
+        if not adult_eligible(model_id,is_base_game_character,edition,age_definition_label): raise ValueError('Chest editing requires adult character metadata: '+age_info(model_id,is_base_game_character,edition,age_definition_label)['status'])
         detection=detect_chest(data)
         if detection['status']!='recognized':raise ValueError(detection['detail'])
         for pair in detection['pairs']:
@@ -382,9 +382,10 @@ def deform(points, strength, mode, params, masks=None):
 
 def run(a):
     is_base_game_character=getattr(a,'base_game_character',False)
+    age_definition_label=getattr(a,'age_definition_label',None)
     edition=getattr(a,'edition',None) or detect_edition(a.game)
     if edition!=detect_edition(a.game): raise ValueError('Requested edition does not match the selected game executable')
-    raw,mats,data=prepare(a.game,a.model,a.model_source);params=profile(data,a.model,a.mode,is_base_game_character,edition)
+    raw,mats,data=prepare(a.game,a.model,a.model_source);params=profile(data,a.model,a.mode,is_base_game_character,edition,age_definition_label)
     preview_transforms,preview_alignment=(preview_group_transforms(data) if not a.export else ([],[]))
     a.out.mkdir(parents=True,exist_ok=True);result=[];missing=set();patched=bytearray(raw);start,size=sections(raw)[4]
     textures={};converted=set()
@@ -462,8 +463,8 @@ def run(a):
         (a.out/'report.json').write_text(json.dumps(dict(model=a.model,mode=a.mode,strength=a.strength,source_sha256=hashlib.sha256(raw).hexdigest(),output_sha256=hashlib.sha256(patched).hexdigest(),same_size=len(raw)==len(patched))))
     else:
         (a.out/'model.json').write_text(json.dumps(result,separators=(',',':')))
-        (a.out/'model-meta.json').write_text(json.dumps({'missing_textures':sorted(missing),'chest_detection':detect_chest(data),'adult_eligible':adult_eligible(a.model,is_base_game_character,edition),'age_info':age_info(a.model,is_base_game_character,edition),'deformation_gain':params[3],'preview_alignment':preview_alignment,'borrowed_model_ids':borrowed_ids}))
+        (a.out/'model-meta.json').write_text(json.dumps({'missing_textures':sorted(missing),'chest_detection':detect_chest(data),'adult_eligible':adult_eligible(a.model,is_base_game_character,edition,age_definition_label),'age_info':age_info(a.model,is_base_game_character,edition,age_definition_label),'deformation_gain':params[3],'preview_alignment':preview_alignment,'borrowed_model_ids':borrowed_ids}))
     print(json.dumps({'ok':True,'model':a.model,'mode':a.mode,'height':params[2]}))
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--game',type=Path,required=True);p.add_argument('--model',required=True);p.add_argument('--mode',choices=['width','chest'],default='width');p.add_argument('--strength',type=int,default=0);p.add_argument('--out',type=Path,required=True);p.add_argument('--export',action='store_true');p.add_argument('--base-game-character',action='store_true');p.add_argument('--edition',choices=['first','second']);p.add_argument('--model-source',type=Path);p.add_argument('--image-pac',type=Path)
+    p=argparse.ArgumentParser();p.add_argument('--game',type=Path,required=True);p.add_argument('--model',required=True);p.add_argument('--mode',choices=['width','chest'],default='width');p.add_argument('--strength',type=int,default=0);p.add_argument('--out',type=Path,required=True);p.add_argument('--export',action='store_true');p.add_argument('--base-game-character',action='store_true');p.add_argument('--age-definition-label');p.add_argument('--edition',choices=['first','second']);p.add_argument('--model-source',type=Path);p.add_argument('--image-pac',type=Path)
     run(p.parse_args())

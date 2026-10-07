@@ -240,8 +240,16 @@ internal static class SecondChapterCheck
             throw new InvalidDataException("2nd Chapter scene labels, shared-model aliases or age evidence was misclassified");
 
         var adult = records.Single(record => record.ModelId == "chr5002");
+        var adultCostume = records.Single(record => record.ModelId == "chr5002_c01");
+        var minorCostume = records.Single(record => record.ModelId == "chr5000_c01");
         var unknown = records.Single(record => record.ModelId == "chr5000");
         var estelleSecond = records.Single(record => record.ModelId == "chr5000_c11");
+        if (!adultCostume.AdultShapeEligible || adultCostume.AgeDefinitionLabel is null
+            || minorCostume.AdultShapeEligible || minorCostume.AgeDefinitionLabel is null
+            || CharacterAgeCatalog.Get("chr5002_c01", true, GameEdition.Second).IsAdult
+            || CharacterAgeCatalog.Get("chr5002_c01", true, GameEdition.Second,
+                "其他角色：泡澡服").IsAdult)
+            throw new InvalidDataException("2nd costume age inheritance ignored the game's definition or admitted an unverified identity");
         if (!unknown.DisplayName.Contains("1st版服装", StringComparison.Ordinal)
             || !estelleSecond.DisplayName.Contains("2nd版轻装服装", StringComparison.Ordinal)
             || estelleSecond.AdultShapeEligible)
@@ -259,6 +267,21 @@ internal static class SecondChapterCheck
         var modelHash = Convert.ToHexString(SHA256.HashData(archive.ReadEntry(adult.ModelEntry)));
         if (!adult.AdultShapeEligible || unknown.AdultShapeEligible)
             throw new InvalidDataException("Edition-specific age eligibility mismatch");
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = adultCostume;
+        Pump(Ready, "adult costume preview");
+        if (!((ComboBoxItem)window.FindName("ChestModeItem")).IsEnabled)
+            throw new InvalidDataException("Adult costume preview did not enable chest editing");
+        var costumeExport = ExportService.ExportAsync(adultCostume, archive,
+            outputRootForPreview(), 137, false, CancellationToken.None, "chest", false);
+        Pump(() => costumeExport.IsCompleted, "adult costume chest export");
+        var costumeModel = costumeExport.GetAwaiter().GetResult().ModelPath;
+        if (!File.Exists(costumeModel) || new FileInfo(costumeModel).Length != adultCostume.ModelEntry.Size
+            || File.ReadAllBytes(costumeModel).SequenceEqual(archive.ReadEntry(adultCostume.ModelEntry)))
+            throw new InvalidDataException("Adult costume chest export failed or did not change the model");
+        ((ComboBox)window.FindName("CharacterBox")).SelectedItem = minorCostume;
+        Pump(Ready, "minor costume preview");
+        if (((ComboBoxItem)window.FindName("ChestModeItem")).IsEnabled)
+            throw new InvalidDataException("Minor costume preview enabled chest editing");
         GameInstaller.ValidateInstallTarget(game);
 
         bool Ready() => (bool)typeof(MainWindow).GetField("_modelReady", Private)!.GetValue(window)!;

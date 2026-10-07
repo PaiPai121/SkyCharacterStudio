@@ -32,8 +32,25 @@ class PortableReleaseCheck {
   bool Ready()=>(bool)typeof(MainWindow).GetField("_modelReady",F)!.GetValue(w)!;
   Pump(Ready);var box=(ComboBox)w.FindName("CharacterBox");
   var firstCostume=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5000_c01");
+  var adultCostume=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5002_c01");
+  if(firstCostume.AgeDefinitionLabel is null || firstCostume.AdultShapeEligible ||
+     !adultCostume.AdultShapeEligible || adultCostume.AgeInfo.Age!=23 ||
+     adultCostume.AgeDefinitionLabel is null ||
+     CharacterAgeCatalog.Get("chr5002_c01",true,GameEdition.First).IsAdult ||
+     CharacterAgeCatalog.Get("chr5002_c01",true,GameEdition.First,"其他角色：泡澡服").IsAdult)
+   throw new Exception("1st costume age inheritance ignored the game's definition or admitted an unverified identity");
   box.SelectedItem=firstCostume;Pump(Ready,"1st outfit preview");
   if(((LiveModelView)w.FindName("LiveView")).Geometry.Count==0)throw new Exception("1st outfit has no preview geometry");
+  if(((ComboBoxItem)w.FindName("ChestModeItem")).IsEnabled)throw new Exception("1st minor costume enabled chest editing");
+  box.SelectedItem=adultCostume;Pump(Ready,"1st adult costume preview");
+  if(!((ComboBoxItem)w.FindName("ChestModeItem")).IsEnabled)throw new Exception("1st adult costume did not enable chest editing");
+  var costumeArchive=PacArchive.Load(Path.Combine(game,"pac/steam/asset_common_model.pac"));
+  var costumeExport=ExportService.ExportAsync(adultCostume,costumeArchive,root,137,false,
+   CancellationToken.None,"chest",false);Pump(()=>costumeExport.IsCompleted,"1st adult costume chest export");
+  var costumeModel=costumeExport.GetAwaiter().GetResult().ModelPath;
+  if(!File.Exists(costumeModel) || new FileInfo(costumeModel).Length!=adultCostume.ModelEntry.Size ||
+     File.ReadAllBytes(costumeModel).SequenceEqual(costumeArchive.ReadEntry(adultCostume.ModelEntry)))
+   throw new Exception("1st adult costume chest export failed or did not change the model");
   var r=box.Items.Cast<CharacterRecord>().Single(item=>item.ModelId=="chr5107");box.SelectedItem=r;Pump(Ready);
   if(((CheckBox)w.FindName("SummonTestingBox")).IsChecked==true)throw new Exception("Summon enabled by default");
   if(((LiveModelView)w.FindName("LiveView")).Geometry.Count==0)throw new Exception("No preview geometry");

@@ -1,3 +1,9 @@
+# 0.3.8 beta
+
+- Let a complete costume model inherit a character's age status only when the selected game's name table has a definition row identifying that character. Numeric model IDs and scene aliases alone do not establish identity.
+- Pass the same definition evidence to preview and export so the UI and bundled Python tool agree on chest-edit eligibility. Adult costumes can be edited where bone detection supports it; minor and unverified costumes remain restricted to width editing.
+- Add real 1st/2nd costume preview and chest-export regression checks, including rejection when the definition is missing or names someone else.
+
 # 0.3.7 beta
 
 - Show complete `chr####_c##` costume models as separate selectable resources instead of filtering out every underscored MDL. Animation and mesh-part MDLs remain excluded.

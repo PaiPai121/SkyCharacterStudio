@@ -9,7 +9,7 @@
     <RootNamespace>Sky1stCharacterStudio</RootNamespace>
     <Platforms>AnyCPU</Platforms>
     <NuGetAudit>false</NuGetAudit>
-    <Version>0.3.7-beta</Version>
+    <Version>0.3.8-beta</Version>
     <ApplicationIcon>assets\SkyCharacterStudio.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);release-stage/**;release-artifacts/**</DefaultItemExcludes>
   </PropertyGroup>

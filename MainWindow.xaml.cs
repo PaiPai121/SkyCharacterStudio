@@ -315,7 +315,7 @@ public partial class MainWindow : Window
             await AutoModelService.Run(GamePathBox.Text,record.ModelId,mode,directory,
                 isBaseGameCharacter:record.IsBaseGameCharacter,cancellationToken:cancellation.Token,
                 modelSource:record.ModelEntry.LoosePath ?? _modelArchive?.ArchivePath,
-                imageArchive:_imageArchive?.ArchivePath);
+                imageArchive:_imageArchive?.ArchivePath,ageDefinitionLabel:record.AgeDefinitionLabel);
             if(generation!=_previewGeneration)return;
             PreviewStageText.Text = UiText.T("preview.stage.render");
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
