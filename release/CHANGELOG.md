@@ -1,3 +1,8 @@
+# 0.3.20 beta
+
+- Rebuild the portable ZIP directly from the release script. The previous uploaded ZIP contained generated Python caches, directory entries, and two age catalogs that no longer matched its release manifest. This build restores the complete source age catalogs and includes only manifest-checked files.
+- No model editing or game installation logic changed from 0.3.19. The new ZIP still needs its own Nexus Mods safety review, and in-game behavior remains a separate check.
+
 # 0.3.19 beta
 
 - Remove the exact game-EXE hash gate for 1st Chapter installations. Unknown hashes now use the existing 1.0.7 model redirect path; the inspected 1.0.5 hash still selects its existing legacy redirect.
