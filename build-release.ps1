@@ -525,6 +525,12 @@ try {
             throw "最终 ZIP 带有 Zone.Identifier 下载标记，已停止交付：$zipPath"
         }
         Set-Content -LiteralPath "$zipPath.sha256" -Value "$hash  $(Split-Path -Leaf $zipPath)" -Encoding ASCII
+        if (-not $sourceDirty) {
+            Invoke-Checked $python @(
+                '-X', 'utf8', (Join-Path $root 'tools\audit_release_zip.py'),
+                '--zip', $zipPath, '--upload'
+            ) '审计待上传的准确 ZIP 文件'
+        }
         $copied = $true
     } finally {
         if (-not $copied) {

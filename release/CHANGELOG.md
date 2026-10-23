@@ -1,3 +1,8 @@
+# 0.3.22 beta
+
+- Audit the exact ZIP selected for upload, including its release manifest, source state, filename, every file hash, and archive structure. Reject repacked application folders, generated caches, nested archives, encrypted entries, unsupported compression, and game assets.
+- Build the player ZIP in a dedicated upload directory for this handoff. This release changes packaging checks only; game editing and installation logic are unchanged. Nexus Mods performs its own security review of compiled tools, so a clean local audit does not guarantee immediate publication.
+
 # 0.3.21 beta
 
 - Check the Windows security zone of a newly created file in the release directory. If the checkout maps local files to the Internet zone, place the ZIP and checksum in a normal sibling release directory instead of leaving them under that checkout.
