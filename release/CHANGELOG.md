@@ -1,3 +1,9 @@
+# 0.3.19 beta
+
+- Remove the exact game-EXE hash gate for 1st Chapter installations. Unknown hashes now use the existing 1.0.7 model redirect path; the inspected 1.0.5 hash still selects its existing legacy redirect.
+- Allow the optional F8 setup on 1st Chapter without a game-version gate. Its address-specific native plugins were not changed and may fail or crash on other EXEs. Keep F8 unchecked unless you accept that risk.
+- Check changed-hash installation and Undo in an isolated game copy and retest the portable ZIP. Neither the reported player's EXE nor in-game appearance has been verified.
+
 # 0.3.18 beta
 
 - Prepare a clean-source, reproducible player package for the combined 1st/2nd Chapter studio. The release archive contains no extracted game models, textures, scripts, local exports, or backups.

@@ -237,8 +237,7 @@ public partial class MainWindow : Window
             _firstSummonSupported = false;
             if (edition == GameEdition.First)
             {
-                try { _firstSummonSupported = GameInstaller.GetSupportedFirstVersion(root) == "1.0.5.0"; }
-                catch (Exception error) when (error is IOException or InvalidOperationException or FileNotFoundException) { }
+                _firstSummonSupported = true;
             }
             if (!_firstSummonSupported) SummonTestingBox.IsChecked = false;
             SummonTestingBox.ToolTip = _firstSummonSupported ? null : UiText.T("summon.unavailable");

@@ -57,10 +57,7 @@ public static class GameInstaller
             .FirstOrDefault(build => string.Equals(build.GetProperty("sha256").GetString(), actual,
                 StringComparison.OrdinalIgnoreCase));
         if (match.ValueKind == JsonValueKind.Undefined)
-        {
-            var version = FileVersionInfo.GetVersionInfo(executablePath).FileVersion ?? "?";
-            throw new InvalidOperationException(UiText.F("error.unsupported.first.version", version));
-        }
+            return "1.0.7.0";
         return match.GetProperty("version").GetString()
             ?? throw new InvalidDataException(UiText.T("error.first.builds.missing"));
     }
@@ -140,9 +137,9 @@ public static class GameInstaller
             var expectedHash = entry.GetProperty("sha256").GetString()
                 ?? throw new InvalidDataException("Legacy plugin hash is missing.");
             if (!allowedPaths.Remove(relative) || expectedHash.Length != 64
-                || !expectedHash.All(Uri.IsHexDigit)
-                || copiedFiles.Contains(relative, StringComparer.OrdinalIgnoreCase))
+                || !expectedHash.All(Uri.IsHexDigit))
                 throw new InvalidDataException("Invalid 1st legacy plugin retirement entry.");
+            if (copiedFiles.Contains(relative, StringComparer.OrdinalIgnoreCase)) continue;
             var target = SafePath(gameRoot, relative);
             if (!File.Exists(target)) continue;
             using var file = File.OpenRead(target);

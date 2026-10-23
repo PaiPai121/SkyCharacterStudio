@@ -352,7 +352,7 @@ public static class ExportService
             $"Mod/SkyCharacterStudio/asset/common/model/{record.ModelFileName}");
 
         SummonSetupResult summonSetup;
-        if (enableSummon && build == "1.0.5.0")
+        if (enableSummon)
         {
             var summonRoot = FindFirstRuntimeFile(projectRoot,
                 "runtime/first-summon/ED9Loader/plugins/EventStarter.dll");

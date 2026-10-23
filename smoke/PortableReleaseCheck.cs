@@ -70,9 +70,9 @@ class PortableReleaseCheck {
      File.Exists(Path.Combine(normal.RuntimePackagePath!,"ED9Loader/plugins/ScriptInject.dll")))
    throw new Exception("Normal 1st package contains F8 plugins or lacks its model redirect");
   var test=Export(101,true);
-  if(test.SummonEnabled || test.SummonWarning is null ||
-     File.Exists(Path.Combine(test.RuntimePackagePath!,"ED9Loader/plugins/EventStarter.dll")))
-   throw new Exception("Unverified 1.0.7 F8 plugin was packaged");
+  if(test.SummonEnabled != File.Exists(Path.Combine(test.RuntimePackagePath!,"ED9Loader/plugins/EventStarter.dll")) ||
+     !File.Exists(Path.Combine(test.RuntimePackagePath!,"ED9Loader/plugins/StudioModelRedirect.dll")))
+   throw new Exception("Optional F8 package state does not match its reported result");
   var fake=Path.Combine(smokeRoot,"test-game");Directory.CreateDirectory(Path.Combine(fake,"pac/steam"));File.Copy(Path.Combine(game,"sora_1st.exe"),Path.Combine(fake,"sora_1st.exe"),true);
   var fakePacPath=Path.Combine(fake,"pac/steam/asset_common_model.pac");WriteSingleModelPac(archive,r.ModelEntry,fakePacPath);
   using(var imageWriter=new BinaryWriter(File.Create(Path.Combine(fake,"pac/steam/image.pac")))){
@@ -89,13 +89,17 @@ class PortableReleaseCheck {
   ((ComboBox)w.FindName("ShapeModeBox")).SelectedIndex=0;
   Pump(Ready);
   shapeSlider.Value=102;
+  Console.WriteLine("STAGE isolated 1st UI installation with optional F8 setup");
   var installTask=(Task)typeof(MainWindow).GetMethod("InstallCurrentAsync",F)!.Invoke(w,null)!;
   Pump(()=>installTask.IsCompleted);installTask.GetAwaiter().GetResult();
   var model=Path.Combine(fake,"Mod/SkyCharacterStudio/asset/common/model/chr5107.mdl");
   var generated=Path.Combine(root,"exports","chr5107_width_102","asset","common","model","chr5107.mdl");
-  if(!File.Exists(generated) || !File.Exists(model) || !File.ReadAllBytes(generated).SequenceEqual(File.ReadAllBytes(model)))throw new Exception("F8 failure blocked normal model generation or installation");
+  File.WriteAllText(Path.Combine(smokeRoot,"first-install-status.txt"),((TextBlock)w.FindName("StatusText")).Text);
+  if(!File.Exists(generated) || !File.Exists(model) || !File.ReadAllBytes(generated).SequenceEqual(File.ReadAllBytes(model)))
+   throw new Exception("F8 setup failure blocked normal model generation or installation: generated="+File.Exists(generated)+
+    ", installed="+File.Exists(model)+", status="+((TextBlock)w.FindName("StatusText")).Text.Replace('\n',' '));
   var status=((TextBlock)w.FindName("StatusText")).Text;
-  if(!status.Contains("F8") || !status.Contains("1.0.7.0"))throw new Exception("Unsupported F8 was not explained in the UI");
+  if(!status.Contains("F8"))throw new Exception("Failed F8 setup was not explained in the UI");
   if(File.Exists(Path.Combine(fake,"ED9Loader/plugins/EventStarter.dll")) ||
      File.Exists(Path.Combine(fake,"ED9Loader/plugins/ScriptInject.dll")) ||
      File.Exists(Path.Combine(fake,"Mod/ScherazardSummon/add_dat_ini.json")))
@@ -187,10 +191,15 @@ class PortableReleaseCheck {
   if(!File.ReadAllBytes(model).SequenceEqual(new byte[]{1,2,3}) || File.Exists(Path.Combine(fake,"xinput1_4.dll")))throw new Exception("Restore mismatch");
   var fakeExe=Path.Combine(fake,"sora_1st.exe");
   using(var changedBuild=new FileStream(fakeExe,FileMode.Append,FileAccess.Write))changedBuild.WriteByte(0);
-  try{GameInstaller.ValidateInstallTarget(fake);throw new Exception("A different-hash 1st executable passed the address-specific loader gate");}catch(InvalidOperationException){}
-  try{GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);throw new Exception("A different-hash 1st executable was installed");}catch(InvalidOperationException){}
+  GameInstaller.ValidateInstallTarget(fake);
+  if(GameInstaller.GetSupportedFirstVersion(fake)!="1.0.7.0")throw new Exception("An unknown 1st hash did not choose the existing model redirect");
+  var changedBackup=GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);
+  if(!File.ReadAllBytes(model).SequenceEqual(File.ReadAllBytes(Path.Combine(normal.RuntimePackagePath!,Path.GetRelativePath(fake,model)))))
+   throw new Exception("A changed-hash 1st executable did not receive the model");
+  File.SetLastWriteTimeUtc(Path.Combine(changedBackup,"installation.json"),DateTime.UtcNow.AddSeconds(3));
+  GameInstaller.RestoreLatest(fake,backups,()=>false);
   if(File.Exists(Path.Combine(fake,"xinput1_4.dll")) || !File.ReadAllBytes(model).SequenceEqual(new byte[]{1,2,3}))
-   throw new Exception("The rejected 1st installation changed game files");
+   throw new Exception("The changed-hash 1st installation did not restore the original files");
   File.WriteAllBytes(fakeExe,[1,2,3]);
   try{GameInstaller.Install(normal.RuntimePackagePath!,fake,backups,()=>false);throw new Exception("Malformed executable accepted");}catch(InvalidOperationException){}
   ((TextBox)w.FindName("GamePathBox")).Text=fake;
@@ -206,7 +215,7 @@ class PortableReleaseCheck {
   ((TextBox)w.FindName("GamePathBox")).Text="";
   if(((TextBlock)w.FindName("TargetGameText")).Text!=UiText.T("game.target.none") || box.Items.Count!=0)
    throw new Exception("Clearing the game folder left stale target information");
-  File.WriteAllText(Path.Combine(smokeRoot,"portable-test-result.txt"),"PASS isolated WPF preview, bundled Python and native builder, normal 1st export without F8 components, unsupported-F8 fallback, 1st different-hash gate, malformed executable offline export and changed-file protection. No writes to the actual game.");
+  File.WriteAllText(Path.Combine(smokeRoot,"portable-test-result.txt"),"PASS isolated WPF preview, bundled Python and native builder, normal 1st export without F8 components, optional-F8 package state, changed-hash install and Undo, malformed executable offline export and changed-file protection. No writes to the actual game.");
   Console.WriteLine("PASS portable release checks");app.Shutdown();
  }
 }
