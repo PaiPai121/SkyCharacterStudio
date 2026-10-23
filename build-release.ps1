@@ -178,6 +178,7 @@ function Invoke-SecondInstallCheck {
 
 $root = (Get-Location).Path
 . (Join-Path $root 'release\BuildInputs.ps1')
+. (Join-Path $root 'release\ArtifactLocation.ps1')
 $sourceDirty = -not (Test-StudioCleanSource -Repository $root)
 if ($sourceDirty) {
     Write-Warning '源码有未提交修改；本次将生成文件名带 -local- 的本地试包，不作为正式发布包。'
@@ -250,14 +251,8 @@ $artifactName = if ($sourceDirty) {
     "SkyCharacterStudio-$version-$RuntimeIdentifier.zip"
 }
 $candidateZip = Join-Path $runRoot $artifactName
-if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {
-    $ArtifactDirectory = if ($sourceDirty) {
-        Join-Path $root 'release-artifacts\local-previews'
-    } else {
-        Join-Path $root 'release-artifacts'
-    }
-}
-$ArtifactDirectory = [IO.Path]::GetFullPath($ArtifactDirectory)
+$ArtifactDirectory = Resolve-StudioArtifactDirectory -Repository $root `
+    -SourceDirty $sourceDirty -Override $ArtifactDirectory
 $zipPath = Join-Path $ArtifactDirectory $artifactName
 # Use Explorer's default destination for clean-extraction QA, not a shorter
 # developer-only path that can hide MAX_PATH failures from players.
@@ -506,9 +501,37 @@ try {
         }
     }
 
-    Move-Item -LiteralPath $candidateZip -Destination $zipPath
-    $hash = Get-Sha256 $zipPath
-    Set-Content -LiteralPath "$zipPath.sha256" -Value "$hash  $(Split-Path -Leaf $zipPath)" -Encoding ASCII
+    # Create a new file at the destination so it inherits that directory's
+    # integrity label. Moving a file from a Low-integrity checkout can carry its
+    # label into an otherwise safe release directory.
+    $candidateHash = Get-Sha256 $candidateZip
+    $copied = $false
+    try {
+        $inputStream = [IO.File]::OpenRead($candidateZip)
+        try {
+            $outputStream = [IO.File]::Open($zipPath, [IO.FileMode]::CreateNew,
+                [IO.FileAccess]::Write, [IO.FileShare]::None)
+            try { $inputStream.CopyTo($outputStream) }
+            finally { $outputStream.Dispose() }
+        } finally { $inputStream.Dispose() }
+
+        $hash = Get-Sha256 $zipPath
+        if ($hash -ne $candidateHash) { throw "发布文件复制后 SHA-256 不一致：$zipPath" }
+        $zone = Get-StudioArtifactZone -FilePath $zipPath
+        if ($zone -ne 0) {
+            throw "最终 ZIP 被 Windows 归为区域 $zone，已停止交付：$zipPath。请检查目标目录或用 -ArtifactDirectory 指定普通本地目录。"
+        }
+        if (@(Get-Item -LiteralPath $zipPath -Stream Zone.Identifier -ErrorAction SilentlyContinue).Count -ne 0) {
+            throw "最终 ZIP 带有 Zone.Identifier 下载标记，已停止交付：$zipPath"
+        }
+        Set-Content -LiteralPath "$zipPath.sha256" -Value "$hash  $(Split-Path -Leaf $zipPath)" -Encoding ASCII
+        $copied = $true
+    } finally {
+        if (-not $copied) {
+            if (Test-Path -LiteralPath "$zipPath.sha256") { Remove-Item -LiteralPath "$zipPath.sha256" -Force }
+            if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+        }
+    }
     $completed = $true
 
     Write-Host "`n打包完成。"

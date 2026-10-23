@@ -1,3 +1,8 @@
+# 0.3.21 beta
+
+- Check the Windows security zone of a newly created file in the release directory. If the checkout maps local files to the Internet zone, place the ZIP and checksum in a normal sibling release directory instead of leaving them under that checkout.
+- Copy the final ZIP into a newly created destination file, verify its SHA-256 and Windows zone 0, and stop packaging if a requested output location would still trigger an Explorer security warning. This changes release packaging only; model editing and game installation code are unchanged.
+
 # 0.3.20 beta
 
 - Rebuild the portable ZIP directly from the release script. The previous uploaded ZIP contained generated Python caches, directory entries, and two age catalogs that no longer matched its release manifest. This build restores the complete source age catalogs and includes only manifest-checked files.
